@@ -14,6 +14,7 @@ import Performance from "./pages/Performance";
 import InjuryPrevention from "./pages/InjuryPrevention";
 import Recovery from "./pages/Recovery";
 import Nutrition from "./pages/Nutrition";
+import WorkoutAI from "./pages/WorkoutAi";
 
 function App() {
   return (
@@ -46,7 +47,10 @@ function App() {
         {/* =====================================
             MAIN APPLICATION
         ===================================== */}
-
+        <Route
+          path="/workout-ai"
+          element={<WorkoutAI />}
+        />
         <Route
           path="/dashboard"
           element={<Dashboard />}
