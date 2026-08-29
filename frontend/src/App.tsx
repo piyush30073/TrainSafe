@@ -5,6 +5,7 @@ import {
   Navigate,
 } from "react-router-dom";
 
+import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -18,6 +19,15 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+
+        {/* =====================================
+            LANDING PAGE
+        ===================================== */}
+
+        <Route
+          path="/"
+          element={<Landing />}
+        />
 
         {/* =====================================
             AUTHENTICATION
@@ -68,31 +78,12 @@ function App() {
         />
 
         {/* =====================================
-            DEFAULT
-        ===================================== */}
-
-        <Route
-          path="/"
-          element={
-            <Navigate
-              to="/dashboard"
-              replace
-            />
-          }
-        />
-
-        {/* =====================================
             UNKNOWN ROUTES
         ===================================== */}
 
         <Route
           path="*"
-          element={
-            <Navigate
-              to="/dashboard"
-              replace
-            />
-          }
+          element={<Navigate to="/" replace />}
         />
 
       </Routes>
