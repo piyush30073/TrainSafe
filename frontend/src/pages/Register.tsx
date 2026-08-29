@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Activity, ArrowLeft, ShieldCheck } from "lucide-react";
 import api from "../services/api";
 
 interface RegisterForm {
@@ -40,9 +41,7 @@ const Register = () => {
     }));
   };
 
-  const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     setError("");
@@ -76,105 +75,145 @@ const Register = () => {
   };
 
   return (
-    <div className="h-screen overflow-hidden bg-slate-950 text-white">
-      <div className="flex h-full items-center justify-center px-4">
+    <main className="fixed inset-0 h-dvh w-full overflow-hidden bg-[#f8faf9] text-slate-900">
+      {/* Background glow */}
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[400px] w-[600px] -translate-x-1/2 rounded-full bg-emerald-200/20 blur-3xl" />
 
-        <div className="w-full max-w-md">
+      {/* Back button */}
+      <div className="absolute left-5 top-5 z-30 sm:left-7 sm:top-6">
+        <Link
+          to="/"
+          className="group flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+        >
+          <ArrowLeft className="h-4 w-4 transition group-hover:-translate-x-1" />
+          Back to home
+        </Link>
+      </div>
 
-          {/* Header */}
-          <div className="mb-4 text-center">
-            <h1 className="text-3xl font-bold">
-              SIH2026
-            </h1>
+      {/* Center */}
+      <div className="relative z-10 flex h-full w-full items-center justify-center px-4 py-3">
+        <div className="w-full max-w-[430px]">
+          
+          {/* Logo */}
+          <div className="mb-3 text-center">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900">
+                <Activity className="h-4 w-4 text-white" />
+              </div>
 
-            <p className="mt-1 text-sm text-slate-400">
-              Athlete Injury Prevention & Recovery
+              <span className="text-xl font-bold tracking-tight">
+                Train<span className="text-emerald-600">Safe</span>
+              </span>
+            </Link>
+
+            <p className="mt-1 text-xs text-slate-500">
+              Train smarter. Move safer.
             </p>
           </div>
 
           {/* Card */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
-
-            <h2 className="text-xl font-semibold">
+          <div className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-4 shadow-xl shadow-slate-900/5">
+            
+            <h1 className="text-lg font-bold tracking-tight">
               Create your athlete profile
-            </h2>
+            </h1>
 
-            <p className="mt-1 text-sm text-slate-400">
-              These details help us personalize your
-              TrainSafe experience.
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              Personalize your TrainSafe experience.
             </p>
 
             {/* Error */}
             {error && (
-              <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-600">
                 {error}
               </div>
             )}
 
             <form
               onSubmit={handleSubmit}
-              className="mt-4 space-y-3"
+              className="mt-3 space-y-2"
             >
-
               {/* Name */}
               <div>
-                <label className="mb-1 block text-sm text-slate-300">
+                <label
+                  htmlFor="name"
+                  className="mb-0.5 block text-[11px] font-semibold text-slate-700"
+                >
                   Full Name
                 </label>
 
                 <input
+                  id="name"
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="Piyush Singh"
                   required
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 outline-none transition focus:border-blue-500"
+                  autoComplete="name"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
                 />
               </div>
 
               {/* Email */}
               <div>
-                <label className="mb-1 block text-sm text-slate-300">
+                <label
+                  htmlFor="email"
+                  className="mb-0.5 block text-[11px] font-semibold text-slate-700"
+                >
                   Email Address
                 </label>
 
                 <input
+                  id="email"
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="you@example.com"
                   required
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 outline-none transition focus:border-blue-500"
+                  autoComplete="email"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
                 />
               </div>
 
               {/* Password */}
               <div>
-                <label className="mb-1 block text-sm text-slate-300">
+                <label
+                  htmlFor="password"
+                  className="mb-0.5 block text-[11px] font-semibold text-slate-700"
+                >
                   Password
                 </label>
 
                 <input
+                  id="password"
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="••••••••"
+                  placeholder="Create a password"
                   minLength={6}
                   required
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 outline-none transition focus:border-blue-500"
+                  autoComplete="new-password"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
                 />
               </div>
 
               {/* Age */}
               <div>
-                <label className="mb-1 block text-sm text-slate-300">
+                <label
+                  htmlFor="age"
+                  className="mb-0.5 block text-[11px] font-semibold text-slate-700"
+                >
                   Age
                 </label>
 
                 <input
+                  id="age"
                   type="number"
                   name="age"
                   value={formData.age}
@@ -183,19 +222,22 @@ const Register = () => {
                   min={1}
                   max={120}
                   required
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 outline-none transition focus:border-blue-500"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
                 />
               </div>
 
               {/* Height + Weight */}
               <div className="grid grid-cols-2 gap-3">
-
                 <div>
-                  <label className="mb-1 block text-sm text-slate-300">
+                  <label
+                    htmlFor="height"
+                    className="mb-0.5 block text-[11px] font-semibold text-slate-700"
+                  >
                     Height (cm)
                   </label>
 
                   <input
+                    id="height"
                     type="number"
                     name="height"
                     value={formData.height}
@@ -204,16 +246,20 @@ const Register = () => {
                     min={50}
                     max={250}
                     required
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 outline-none transition focus:border-blue-500"
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm text-slate-300">
+                  <label
+                    htmlFor="weight"
+                    className="mb-0.5 block text-[11px] font-semibold text-slate-700"
+                  >
                     Weight (kg)
                   </label>
 
                   <input
+                    id="weight"
                     type="number"
                     name="weight"
                     value={formData.weight}
@@ -222,23 +268,26 @@ const Register = () => {
                     min={20}
                     max={300}
                     required
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 outline-none transition focus:border-blue-500"
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
                   />
                 </div>
-
               </div>
 
               {/* Fitness Goal */}
               <div>
-                <label className="mb-1 block text-sm text-slate-300">
+                <label
+                  htmlFor="fitnessGoal"
+                  className="mb-0.5 block text-[11px] font-semibold text-slate-700"
+                >
                   Primary Fitness Goal
                 </label>
 
                 <select
+                  id="fitnessGoal"
                   name="fitnessGoal"
                   value={formData.fitnessGoal}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 outline-none transition focus:border-blue-500"
+                  className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10"
                 >
                   <option value="general-fitness">
                     General Fitness
@@ -266,31 +315,40 @@ const Register = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2.5 font-medium transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-10 w-full rounded-lg bg-slate-900 px-4 text-xs font-semibold text-white shadow-md shadow-slate-900/10 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading
                   ? "Creating Account..."
                   : "Create Athlete Account"}
               </button>
-
             </form>
 
+            {/* Security */}
+            <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-slate-400">
+              <ShieldCheck className="h-3 w-3 text-emerald-600" />
+              Your information is securely stored
+            </div>
+
             {/* Login */}
-            <p className="mt-4 text-center text-sm text-slate-400">
-              Already have an account?{" "}
-
-              <Link
-                to="/login"
-                className="font-medium text-blue-400 hover:text-blue-300"
-              >
-                Sign In
-              </Link>
-            </p>
-
+            <div className="mt-2 border-t border-slate-100 pt-2 text-center">
+              <p className="text-[11px] text-slate-500">
+                Already have an account?{" "}
+                <Link
+                  to="/login"
+                  className="font-semibold text-emerald-600 hover:text-emerald-700"
+                >
+                  Sign In
+                </Link>
+              </p>
+            </div>
           </div>
+
+          <p className="mt-1.5 text-center text-[9px] text-slate-400">
+            AI-powered training, prevention and recovery.
+          </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 

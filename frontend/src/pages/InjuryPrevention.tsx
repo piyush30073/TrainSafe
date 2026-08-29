@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Activity,
@@ -170,45 +171,49 @@ const InjuryPrevention = () => {
   };
 
   // ==========================================
-  // RISK COLORS
+  // RISK STYLES
   // ==========================================
 
   const getRiskStyles = () => {
     if (!assessment) {
       return {
         text: "text-slate-400",
-        bg: "bg-slate-500/10",
-        border: "border-slate-700",
+        bg: "bg-slate-50",
+        border: "border-slate-200",
+        iconBg: "bg-slate-100",
       };
     }
 
     if (assessment.riskLevel === "High") {
       return {
-        text: "text-red-400",
-        bg: "bg-red-500/10",
-        border: "border-red-500/30",
+        text: "text-red-600",
+        bg: "bg-red-50",
+        border: "border-red-200",
+        iconBg: "bg-red-100",
       };
     }
 
     if (assessment.riskLevel === "Moderate") {
       return {
-        text: "text-amber-400",
-        bg: "bg-amber-500/10",
-        border: "border-amber-500/30",
+        text: "text-amber-600",
+        bg: "bg-amber-50",
+        border: "border-amber-200",
+        iconBg: "bg-amber-100",
       };
     }
 
     return {
-      text: "text-emerald-400",
-      bg: "bg-emerald-500/10",
-      border: "border-emerald-500/30",
+      text: "text-emerald-600",
+      bg: "bg-emerald-50",
+      border: "border-emerald-200",
+      iconBg: "bg-emerald-100",
     };
   };
 
   const riskStyles = getRiskStyles();
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-950 text-white">
+    <div className="min-h-screen overflow-x-hidden bg-[#f8faf9] text-slate-900">
 
       <div className="flex min-h-screen">
 
@@ -225,21 +230,23 @@ const InjuryPrevention = () => {
             ================================== */}
 
             <section>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
 
-              <p className="text-sm font-medium text-blue-400">
-                Injury Prevention
-              </p>
+                <p className="text-sm font-semibold text-emerald-600">
+                  Injury Prevention
+                </p>
+              </div>
 
-              <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+              <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                 Injury Risk Assessment
               </h1>
 
-              <p className="mt-2 max-w-2xl text-sm text-slate-400 sm:text-base">
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base">
                 Analyze your training, recovery and
                 physical indicators to understand your
                 current injury risk.
               </p>
-
             </section>
 
             {/* ==================================
@@ -247,7 +254,7 @@ const InjuryPrevention = () => {
             ================================== */}
 
             {error && (
-              <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                 {error}
               </div>
             )}
@@ -261,29 +268,26 @@ const InjuryPrevention = () => {
               {/* Risk */}
 
               <div
-                className={`rounded-2xl border p-5 ${riskStyles.bg} ${riskStyles.border}`}
+                className={`rounded-2xl border p-5 shadow-sm shadow-slate-900/[0.02] ${riskStyles.bg} ${riskStyles.border}`}
               >
-
                 <div className="flex items-center justify-between">
 
                   <div>
-
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm font-medium text-slate-500">
                       Current Injury Risk
                     </p>
 
                     <p
-                      className={`mt-2 text-4xl font-bold ${riskStyles.text}`}
+                      className={`mt-2 text-4xl font-bold tracking-tight ${riskStyles.text}`}
                     >
                       {fetching
                         ? "--"
                         : `${assessment?.riskScore ?? 0}%`}
                     </p>
-
                   </div>
 
                   <div
-                    className={`rounded-xl p-3 ${riskStyles.bg} ${riskStyles.text}`}
+                    className={`rounded-xl p-3 ${riskStyles.iconBg} ${riskStyles.text}`}
                   >
                     <ShieldAlert size={24} />
                   </div>
@@ -291,30 +295,29 @@ const InjuryPrevention = () => {
                 </div>
 
                 <p
-                  className={`mt-3 text-sm font-medium ${riskStyles.text}`}
+                  className={`mt-3 text-sm font-semibold ${riskStyles.text}`}
                 >
                   {assessment?.riskLevel ||
                     "No assessment yet"}
                 </p>
-
               </div>
 
               {/* Training Load */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.02]">
 
                 <div className="flex items-center gap-3">
 
-                  <div className="rounded-xl bg-blue-500/10 p-3 text-blue-400">
+                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
                     <Activity size={22} />
                   </div>
 
                   <div>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm font-medium text-slate-500">
                       Training Load
                     </p>
 
-                    <p className="mt-1 text-2xl font-bold">
+                    <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
                       {assessment
                         ? `${assessment.trainingLoad}/10`
                         : "--"}
@@ -327,20 +330,20 @@ const InjuryPrevention = () => {
 
               {/* Recovery */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.02]">
 
                 <div className="flex items-center gap-3">
 
-                  <div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-400">
+                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
                     <Moon size={22} />
                   </div>
 
                   <div>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm font-medium text-slate-500">
                       Recovery Quality
                     </p>
 
-                    <p className="mt-1 text-2xl font-bold">
+                    <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
                       {assessment
                         ? `${assessment.recoveryQuality}/10`
                         : "--"}
@@ -363,17 +366,16 @@ const InjuryPrevention = () => {
                   ASSESSMENT FORM
               ================================== */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6 lg:col-span-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.02] sm:p-6 lg:col-span-2">
 
                 <div className="flex items-center gap-3">
 
-                  <div className="rounded-xl bg-blue-500/10 p-3 text-blue-400">
+                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
                     <ShieldAlert size={21} />
                   </div>
 
                   <div>
-
-                    <h2 className="font-semibold">
+                    <h2 className="font-bold text-slate-900">
                       Risk Assessment
                     </h2>
 
@@ -381,7 +383,6 @@ const InjuryPrevention = () => {
                       Update your current training
                       condition
                     </p>
-
                   </div>
 
                 </div>
@@ -394,14 +395,13 @@ const InjuryPrevention = () => {
                   {/* Training Frequency */}
 
                   <div>
-
                     <div className="flex items-center justify-between">
 
-                      <label className="text-sm text-slate-300">
+                      <label className="text-sm font-semibold text-slate-700">
                         Training Frequency
                       </label>
 
-                      <span className="text-sm font-medium text-blue-400">
+                      <span className="text-sm font-semibold text-emerald-600">
                         {trainingFrequency} days/week
                       </span>
 
@@ -410,29 +410,27 @@ const InjuryPrevention = () => {
                     <input
                       type="range"
                       min="0"
-                      max="14"
+                      max="7"
                       value={trainingFrequency}
                       onChange={(event) =>
                         setTrainingFrequency(
                           event.target.value
                         )
                       }
-                      className="mt-3 w-full accent-blue-500"
+                      className="mt-3 w-full accent-emerald-600"
                     />
-
                   </div>
 
                   {/* Training Load */}
 
                   <div>
-
                     <div className="flex items-center justify-between">
 
-                      <label className="text-sm text-slate-300">
+                      <label className="text-sm font-semibold text-slate-700">
                         Training Load
                       </label>
 
-                      <span className="text-sm font-medium text-blue-400">
+                      <span className="text-sm font-semibold text-emerald-600">
                         {trainingLoad}/10
                       </span>
 
@@ -448,25 +446,22 @@ const InjuryPrevention = () => {
                           event.target.value
                         )
                       }
-                      className="mt-3 w-full accent-blue-500"
+                      className="mt-3 w-full accent-emerald-600"
                     />
-
                   </div>
 
                   {/* Previous Injury */}
 
-                  <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 p-4">
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4">
 
                     <div>
-
-                      <p className="text-sm font-medium">
+                      <p className="text-sm font-semibold text-slate-800">
                         Previous Injury
                       </p>
 
                       <p className="mt-1 text-xs text-slate-500">
                         Have you had an injury recently?
                       </p>
-
                     </div>
 
                     <button
@@ -476,21 +471,20 @@ const InjuryPrevention = () => {
                           !previousInjury
                         )
                       }
+                      aria-label="Toggle previous injury"
                       className={`relative h-6 w-11 rounded-full transition ${
                         previousInjury
-                          ? "bg-blue-600"
-                          : "bg-slate-700"
+                          ? "bg-emerald-600"
+                          : "bg-slate-300"
                       }`}
                     >
-
                       <span
-                        className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
+                        className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition ${
                           previousInjury
                             ? "left-6"
                             : "left-1"
                         }`}
                       />
-
                     </button>
 
                   </div>
@@ -498,14 +492,13 @@ const InjuryPrevention = () => {
                   {/* Current Pain */}
 
                   <div>
-
                     <div className="flex items-center justify-between">
 
-                      <label className="text-sm text-slate-300">
+                      <label className="text-sm font-semibold text-slate-700">
                         Current Pain
                       </label>
 
-                      <span className="text-sm font-medium text-blue-400">
+                      <span className="text-sm font-semibold text-emerald-600">
                         {currentPain}/10
                       </span>
 
@@ -521,22 +514,20 @@ const InjuryPrevention = () => {
                           event.target.value
                         )
                       }
-                      className="mt-3 w-full accent-blue-500"
+                      className="mt-3 w-full accent-emerald-600"
                     />
-
                   </div>
 
                   {/* Sleep */}
 
                   <div>
-
                     <div className="flex items-center justify-between">
 
-                      <label className="text-sm text-slate-300">
+                      <label className="text-sm font-semibold text-slate-700">
                         Sleep Quality
                       </label>
 
-                      <span className="text-sm font-medium text-blue-400">
+                      <span className="text-sm font-semibold text-emerald-600">
                         {sleepQuality}/10
                       </span>
 
@@ -552,22 +543,20 @@ const InjuryPrevention = () => {
                           event.target.value
                         )
                       }
-                      className="mt-3 w-full accent-blue-500"
+                      className="mt-3 w-full accent-emerald-600"
                     />
-
                   </div>
 
                   {/* Recovery */}
 
                   <div>
-
                     <div className="flex items-center justify-between">
 
-                      <label className="text-sm text-slate-300">
+                      <label className="text-sm font-semibold text-slate-700">
                         Recovery Quality
                       </label>
 
-                      <span className="text-sm font-medium text-blue-400">
+                      <span className="text-sm font-semibold text-emerald-600">
                         {recoveryQuality}/10
                       </span>
 
@@ -583,15 +572,16 @@ const InjuryPrevention = () => {
                           event.target.value
                         )
                       }
-                      className="mt-3 w-full accent-blue-500"
+                      className="mt-3 w-full accent-emerald-600"
                     />
-
                   </div>
+
+                  {/* Submit */}
 
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-medium transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Sparkles size={18} />
 
@@ -601,31 +591,28 @@ const InjuryPrevention = () => {
                   </button>
 
                 </form>
-
               </div>
 
               {/* ==================================
                   RECOMMENDATIONS
               ================================== */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.02] sm:p-6">
 
                 <div className="flex items-center gap-3">
 
-                  <div className="rounded-xl bg-amber-500/10 p-3 text-amber-400">
+                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
                     <Sparkles size={21} />
                   </div>
 
                   <div>
-
-                    <h2 className="font-semibold">
+                    <h2 className="font-bold text-slate-900">
                       Recommendations
                     </h2>
 
                     <p className="text-sm text-slate-500">
                       Personalized guidance
                     </p>
-
                   </div>
 
                 </div>
@@ -638,32 +625,30 @@ const InjuryPrevention = () => {
                       (recommendation, index) => (
                         <div
                           key={index}
-                          className="flex gap-3 rounded-xl border border-slate-800 bg-slate-950 p-4"
+                          className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
                         >
-
                           <CheckCircle2
                             size={19}
-                            className="mt-0.5 shrink-0 text-emerald-400"
+                            className="mt-0.5 shrink-0 text-emerald-600"
                           />
 
-                          <p className="text-sm leading-relaxed text-slate-400">
+                          <p className="text-sm leading-relaxed text-slate-600">
                             {recommendation}
                           </p>
-
                         </div>
                       )
                     )
 
                   ) : (
 
-                    <div className="rounded-xl border border-dashed border-slate-700 p-5 text-center">
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
 
                       <AlertTriangle
                         size={24}
-                        className="mx-auto text-slate-600"
+                        className="mx-auto text-slate-400"
                       />
 
-                      <p className="mt-3 text-sm text-slate-500">
+                      <p className="mt-3 text-sm leading-relaxed text-slate-500">
                         Complete an assessment to
                         receive personalized
                         recommendations.
@@ -683,7 +668,10 @@ const InjuryPrevention = () => {
                 DISCLAIMER
             ================================== */}
 
-            <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-4 text-xs leading-relaxed text-slate-500">
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-xs leading-relaxed text-slate-500 shadow-sm shadow-slate-900/[0.02]">
+              <span className="font-semibold text-slate-700">
+                Important:
+              </span>{" "}
               TrainSafe's injury assessment is intended
               for training and wellness guidance only.
               It is not a medical diagnosis. If you have

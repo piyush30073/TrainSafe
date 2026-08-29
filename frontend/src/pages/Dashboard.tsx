@@ -4,14 +4,15 @@ import {
   HeartPulse,
   ShieldAlert,
   Utensils,
+  Dumbbell,
+  ChevronRight,
 } from "lucide-react";
+
 import Sidebar from "../components/layout/Sidebar";
 import Topbar from "../components/layout/Topbar";
 
 const Dashboard = () => {
-  const user = JSON.parse(
-    localStorage.getItem("user") || "{}"
-  );
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   // ==========================================
   // TEMPORARY WORKOUT API TEST
@@ -51,25 +52,14 @@ const Dashboard = () => {
       console.log("Workout response:", data);
 
       if (!response.ok) {
-        alert(
-          data.message ||
-            "Workout creation failed"
-        );
-
+        alert(data.message || "Workout creation failed");
         return;
       }
 
       alert("Workout created successfully!");
-
     } catch (error) {
-      console.error(
-        "Workout error:",
-        error
-      );
-
-      alert(
-        "Unable to connect to backend"
-      );
+      console.error("Workout error:", error);
+      alert("Unable to connect to backend");
     }
   };
 
@@ -83,29 +73,37 @@ const Dashboard = () => {
       value: "23%",
       label: "Low risk",
       icon: ShieldAlert,
+      iconBg: "bg-amber-50",
+      iconColor: "text-amber-500",
     },
     {
       title: "Recovery",
       value: "78%",
       label: "On track",
       icon: HeartPulse,
+      iconBg: "bg-rose-50",
+      iconColor: "text-rose-500",
     },
     {
       title: "Fitness Score",
       value: "82",
       label: "+6 this week",
       icon: Activity,
+      iconBg: "bg-emerald-50",
+      iconColor: "text-emerald-600",
     },
     {
       title: "Energy",
       value: "91%",
       label: "Excellent",
       icon: Utensils,
+      iconBg: "bg-blue-50",
+      iconColor: "text-blue-500",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-[#f8faf9] text-slate-900">
 
       <div className="flex min-h-screen">
 
@@ -123,71 +121,65 @@ const Dashboard = () => {
 
           <Topbar />
 
-          <main className="px-6 py-8 lg:px-8">
+          <main className="px-5 py-6 sm:px-6 lg:px-8">
 
             {/* ======================================
                 WELCOME
             ====================================== */}
 
             <section>
-
-              <p className="text-sm font-medium text-blue-400">
+              <p className="text-sm font-semibold text-emerald-600">
                 Athlete Overview
               </p>
 
-              <h1 className="mt-2 text-3xl font-bold tracking-tight">
+              <h1 className="mt-1.5 text-3xl font-bold tracking-tight text-slate-900">
                 Good morning,{" "}
                 {user.name || "Athlete"} 👋
               </h1>
 
-              <p className="mt-2 max-w-2xl text-slate-400">
-                Here's a quick overview of your
-                training, recovery and injury
-                prevention status.
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                Here's a quick overview of your training,
+                recovery and injury prevention status.
               </p>
-
             </section>
 
             {/* ======================================
                 STATS
             ====================================== */}
 
-            <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
               {stats.map((stat) => {
-
                 const Icon = stat.icon;
 
                 return (
                   <div
                     key={stat.title}
-                    className="rounded-2xl border border-slate-800 bg-slate-900 p-5"
+                    className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                   >
-
                     <div className="flex items-start justify-between">
 
                       <div>
-
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm font-medium text-slate-500">
                           {stat.title}
                         </p>
 
-                        <p className="mt-3 text-3xl font-bold">
+                        <p className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
                           {stat.value}
                         </p>
 
-                        <p className="mt-1 text-xs text-emerald-400">
+                        <p className="mt-1 text-xs font-medium text-emerald-600">
                           {stat.label}
                         </p>
-
                       </div>
 
-                      <div className="rounded-xl bg-blue-500/10 p-3 text-blue-400">
+                      <div
+                        className={`rounded-xl p-3 ${stat.iconBg} ${stat.iconColor}`}
+                      >
                         <Icon size={20} />
                       </div>
 
                     </div>
-
                   </div>
                 );
               })}
@@ -198,32 +190,29 @@ const Dashboard = () => {
                 MAIN GRID
             ====================================== */}
 
-            <section className="mt-6 grid gap-6 xl:grid-cols-3">
+            <section className="mt-6 grid gap-5 xl:grid-cols-3">
 
               {/* ==================================
                   PERFORMANCE
               ================================== */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
 
                 <div className="flex items-center justify-between">
 
                   <div>
-
-                    <h2 className="text-lg font-semibold">
+                    <h2 className="text-lg font-bold text-slate-900">
                       Performance Overview
                     </h2>
 
                     <p className="mt-1 text-sm text-slate-500">
-                      Your training performance
-                      this week
+                      Your training performance this week
                     </p>
-
                   </div>
 
                   <button
                     type="button"
-                    className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300"
+                    className="flex items-center gap-1 text-sm font-medium text-emerald-600 transition hover:text-emerald-700"
                   >
                     View details
                     <ArrowUpRight size={16} />
@@ -231,9 +220,9 @@ const Dashboard = () => {
 
                 </div>
 
-                {/* Temporary chart */}
+                {/* Chart */}
 
-                <div className="mt-8 flex h-64 items-end gap-3">
+                <div className="mt-8 flex h-56 items-end gap-3 border-b border-slate-100 pb-2">
 
                   {[
                     42,
@@ -243,38 +232,37 @@ const Dashboard = () => {
                     61,
                     76,
                     84,
-                  ].map(
-                    (height, index) => (
+                  ].map((height, index) => (
+
+                    <div
+                      key={index}
+                      className="flex flex-1 flex-col items-center gap-3"
+                    >
 
                       <div
-                        key={index}
-                        className="flex flex-1 flex-col items-center gap-3"
-                      >
+                        className="w-full max-w-12 rounded-t-lg bg-emerald-500/70 transition hover:bg-emerald-500"
+                        style={{
+                          height: `${height}%`,
+                        }}
+                      />
 
-                        <div
-                          className="w-full max-w-12 rounded-t-lg bg-blue-500/60 transition hover:bg-blue-400"
-                          style={{
-                            height: `${height}%`,
-                          }}
-                        />
+                      <span className="text-xs font-medium text-slate-400">
+                        {
+                          [
+                            "Mon",
+                            "Tue",
+                            "Wed",
+                            "Thu",
+                            "Fri",
+                            "Sat",
+                            "Sun",
+                          ][index]
+                        }
+                      </span>
 
-                        <span className="text-xs text-slate-600">
-                          {
-                            [
-                              "Mon",
-                              "Tue",
-                              "Wed",
-                              "Thu",
-                              "Fri",
-                              "Sat",
-                              "Sun",
-                            ][index]
-                          }
-                        </span>
+                    </div>
 
-                      </div>
-                    )
-                  )}
+                  ))}
 
                 </div>
 
@@ -284,52 +272,47 @@ const Dashboard = () => {
                   INJURY RISK
               ================================== */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
                 <div className="flex items-center gap-3">
 
-                  <div className="rounded-xl bg-amber-500/10 p-3 text-amber-400">
+                  <div className="rounded-xl bg-amber-50 p-3 text-amber-500">
                     <ShieldAlert size={21} />
                   </div>
 
                   <div>
-
-                    <h2 className="font-semibold">
+                    <h2 className="font-bold text-slate-900">
                       Injury Prevention
                     </h2>
 
                     <p className="text-sm text-slate-500">
-                      Latest assessment
+                      Latest AI assessment
                     </p>
-
                   </div>
 
                 </div>
 
-                <div className="mt-8 text-center">
+                <div className="mt-7 text-center">
 
-                  <div className="text-5xl font-bold">
+                  <div className="text-5xl font-bold tracking-tight text-slate-900">
                     23%
                   </div>
 
-                  <p className="mt-2 text-sm text-emerald-400">
+                  <p className="mt-2 text-sm font-medium text-emerald-600">
                     Low injury risk
                   </p>
 
                 </div>
 
-                <div className="mt-8 h-2 overflow-hidden rounded-full bg-slate-800">
-
+                <div className="mt-7 h-2 overflow-hidden rounded-full bg-slate-100">
                   <div className="h-full w-[23%] rounded-full bg-emerald-500" />
-
                 </div>
 
                 <button
                   type="button"
-                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium transition hover:bg-blue-500"
+                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                 >
                   Start AI Posture Scan
-
                   <ArrowUpRight size={17} />
                 </button>
 
@@ -338,86 +321,179 @@ const Dashboard = () => {
             </section>
 
             {/* ======================================
-                QUICK ACTIONS
+                QUICK ACCESS
             ====================================== */}
 
-            <section className="mt-6 grid gap-4 md:grid-cols-3">
+            <section className="mt-6">
 
-              {/* Recovery */}
+              <div className="mb-4 flex items-center justify-between">
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    Quick Access
+                  </h2>
 
-                <HeartPulse
-                  className="text-rose-400"
-                  size={22}
-                />
+                  <p className="mt-1 text-sm text-slate-500">
+                    Manage your training and recovery
+                  </p>
+                </div>
 
-                <h3 className="mt-4 font-semibold">
-                  Today's Recovery
-                </h3>
+              </div>
 
-                <p className="mt-1 text-sm text-slate-500">
-                  4 of 5 exercises completed
-                </p>
+              <div className="grid gap-4 md:grid-cols-3">
 
-                <div className="mt-4 h-2 rounded-full bg-slate-800">
+                {/* Recovery */}
 
-                  <div className="h-full w-[80%] rounded-full bg-rose-400" />
+                <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+
+                  <div className="flex items-center justify-between">
+
+                    <div className="rounded-xl bg-rose-50 p-3 text-rose-500">
+                      <HeartPulse size={22} />
+                    </div>
+
+                    <ChevronRight
+                      size={18}
+                      className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-500"
+                    />
+
+                  </div>
+
+                  <h3 className="mt-4 font-bold text-slate-900">
+                    Today's Recovery
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    4 of 5 exercises completed
+                  </p>
+
+                  <div className="mt-4 h-2 rounded-full bg-slate-100">
+                    <div className="h-full w-[80%] rounded-full bg-rose-400" />
+                  </div>
+
+                  <p className="mt-2 text-xs font-medium text-slate-400">
+                    80% completed
+                  </p>
+
+                </div>
+
+                {/* Nutrition */}
+
+                <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+
+                  <div className="flex items-center justify-between">
+
+                    <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
+                      <Utensils size={22} />
+                    </div>
+
+                    <ChevronRight
+                      size={18}
+                      className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-500"
+                    />
+
+                  </div>
+
+                  <h3 className="mt-4 font-bold text-slate-900">
+                    Nutrition
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    2,850 kcal planned today
+                  </p>
+
+                  <button
+                    type="button"
+                    className="mt-4 text-sm font-semibold text-emerald-600 transition hover:text-emerald-700"
+                  >
+                    View meal plan →
+                  </button>
+
+                </div>
+
+                {/* Training */}
+
+                <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+
+                  <div className="flex items-center justify-between">
+
+                    <div className="rounded-xl bg-blue-50 p-3 text-blue-500">
+                      <Dumbbell size={22} />
+                    </div>
+
+                    <ChevronRight
+                      size={18}
+                      className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-slate-500"
+                    />
+
+                  </div>
+
+                  <h3 className="mt-4 font-bold text-slate-900">
+                    Training
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Next session: Upper Body
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={testWorkout}
+                    className="mt-4 text-sm font-semibold text-emerald-600 transition hover:text-emerald-700"
+                  >
+                    Test Workout →
+                  </button>
 
                 </div>
 
               </div>
 
-              {/* Nutrition */}
+            </section>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            {/* ======================================
+                AI INSIGHT
+            ====================================== */}
 
-                <Utensils
-                  className="text-emerald-400"
-                  size={22}
-                />
+            <section className="mt-6">
 
-                <h3 className="mt-4 font-semibold">
-                  Nutrition
-                </h3>
+              <div className="relative overflow-hidden rounded-2xl bg-slate-900 p-6 text-white shadow-sm">
 
-                <p className="mt-1 text-sm text-slate-500">
-                  2,850 kcal planned today
-                </p>
+                <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-emerald-500/20 blur-3xl" />
 
-                <button
-                  type="button"
-                  className="mt-4 text-sm text-blue-400 hover:text-blue-300"
-                >
-                  View meal plan →
-                </button>
+                <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
 
-              </div>
+                  <div className="flex items-start gap-4">
 
-              {/* Training */}
+                    <div className="rounded-xl bg-emerald-500/15 p-3 text-emerald-400">
+                      <Activity size={23} />
+                    </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                        AI Training Insight
+                      </p>
 
-                <Activity
-                  className="text-blue-400"
-                  size={22}
-                />
+                      <h3 className="mt-1 text-lg font-bold">
+                        Your training load looks healthy.
+                      </h3>
 
-                <h3 className="mt-4 font-semibold">
-                  Training
-                </h3>
+                      <p className="mt-1 max-w-xl text-sm text-slate-400">
+                        Keep your current recovery routine and avoid
+                        increasing training intensity too quickly.
+                      </p>
+                    </div>
 
-                <p className="mt-1 text-sm text-slate-500">
-                  Next session: Upper Body
-                </p>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={testWorkout}
-                  className="mt-4 text-sm text-blue-400 hover:text-blue-300"
-                >
-                  Test Workout →
-                </button>
+                  <button
+                    type="button"
+                    className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+                  >
+                    View AI Insights
+                    <ArrowUpRight size={16} />
+                  </button>
+
+                </div>
 
               </div>
 

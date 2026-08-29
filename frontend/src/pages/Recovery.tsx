@@ -170,7 +170,7 @@ const Recovery = () => {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-slate-950 text-white">
+    <div className="min-h-screen overflow-x-hidden bg-[#f8faf9] text-slate-900">
 
       <div className="flex min-h-screen">
 
@@ -187,20 +187,22 @@ const Recovery = () => {
             ================================== */}
 
             <section>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
 
-              <p className="text-sm font-medium text-blue-400">
-                Recovery
-              </p>
+                <p className="text-sm font-semibold text-emerald-600">
+                  Recovery
+                </p>
+              </div>
 
-              <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+              <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
                 Recovery Center
               </h1>
 
-              <p className="mt-2 max-w-2xl text-sm text-slate-400 sm:text-base">
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-base">
                 Stay consistent with your recovery
                 routine and track your progress.
               </p>
-
             </section>
 
             {/* ==================================
@@ -208,7 +210,7 @@ const Recovery = () => {
             ================================== */}
 
             {error && (
-              <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                 {error}
               </div>
             )}
@@ -221,31 +223,29 @@ const Recovery = () => {
 
               {/* Recovery Score */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.02]">
 
                 <div className="flex items-center justify-between">
 
                   <div>
-
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm font-medium text-slate-500">
                       Recovery Score
                     </p>
 
-                    <p className="mt-2 text-3xl font-bold">
+                    <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
                       {loading
                         ? "--"
                         : `${recovery?.recoveryScore ?? 0}%`}
                     </p>
-
                   </div>
 
-                  <div className="rounded-xl bg-rose-500/10 p-3 text-rose-400">
+                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
                     <HeartPulse size={22} />
                   </div>
 
                 </div>
 
-                <p className="mt-2 text-xs text-emerald-400">
+                <p className="mt-2 text-xs font-medium text-emerald-600">
                   Based on completed exercises
                 </p>
 
@@ -253,25 +253,23 @@ const Recovery = () => {
 
               {/* Exercises */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.02]">
 
                 <div className="flex items-center justify-between">
 
                   <div>
-
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm font-medium text-slate-500">
                       Exercises
                     </p>
 
-                    <p className="mt-2 text-3xl font-bold">
+                    <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
                       {loading
                         ? "--"
                         : recovery?.totalExercises ?? 0}
                     </p>
-
                   </div>
 
-                  <div className="rounded-xl bg-blue-500/10 p-3 text-blue-400">
+                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
                     <RotateCcw size={22} />
                   </div>
 
@@ -285,25 +283,23 @@ const Recovery = () => {
 
               {/* Completed */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.02]">
 
                 <div className="flex items-center justify-between">
 
                   <div>
-
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm font-medium text-slate-500">
                       Completed
                     </p>
 
-                    <p className="mt-2 text-3xl font-bold">
+                    <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
                       {loading
                         ? "--"
                         : recovery?.completedExercises ?? 0}
                     </p>
-
                   </div>
 
-                  <div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-400">
+                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
                     <CheckCircle2 size={22} />
                   </div>
 
@@ -317,25 +313,23 @@ const Recovery = () => {
 
               {/* Minutes */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.02]">
 
                 <div className="flex items-center justify-between">
 
                   <div>
-
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm font-medium text-slate-500">
                       Recovery Time
                     </p>
 
-                    <p className="mt-2 text-3xl font-bold">
+                    <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
                       {loading
                         ? "--"
                         : recovery?.completedMinutes ?? 0}
                     </p>
-
                   </div>
 
-                  <div className="rounded-xl bg-amber-500/10 p-3 text-amber-400">
+                  <div className="rounded-xl bg-amber-50 p-3 text-amber-600">
                     <Clock3 size={22} />
                   </div>
 
@@ -359,26 +353,23 @@ const Recovery = () => {
                   EXERCISE LIST
               ================================== */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6 lg:col-span-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.02] sm:p-6 lg:col-span-2">
 
                 <div className="flex items-center justify-between">
 
                   <div>
-
-                    <h2 className="text-lg font-semibold">
+                    <h2 className="text-lg font-bold text-slate-900">
                       Recovery Routine
                     </h2>
 
                     <p className="mt-1 text-sm text-slate-500">
                       Complete your recovery exercises
                     </p>
-
                   </div>
 
-                  <HeartPulse
-                    size={21}
-                    className="text-rose-400"
-                  />
+                  <div className="rounded-xl bg-emerald-50 p-2.5 text-emerald-600">
+                    <HeartPulse size={21} />
+                  </div>
 
                 </div>
 
@@ -393,18 +384,18 @@ const Recovery = () => {
                   ) : !recovery ||
                     recovery.exercises.length === 0 ? (
 
-                    <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center">
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
 
                       <HeartPulse
                         size={32}
-                        className="mx-auto text-slate-600"
+                        className="mx-auto text-slate-400"
                       />
 
-                      <p className="mt-4 font-medium text-slate-400">
+                      <p className="mt-4 font-semibold text-slate-700">
                         No recovery exercises yet
                       </p>
 
-                      <p className="mt-1 text-sm text-slate-600">
+                      <p className="mt-1 text-sm text-slate-500">
                         Add your first recovery exercise
                         using the form.
                       </p>
@@ -418,14 +409,16 @@ const Recovery = () => {
 
                         <div
                           key={item._id}
-                          className={`flex flex-col gap-4 rounded-xl border p-4 transition sm:flex-row sm:items-center sm:justify-between ${
+                          className={`flex flex-col gap-4 rounded-2xl border p-4 transition sm:flex-row sm:items-center sm:justify-between ${
                             item.completed
-                              ? "border-emerald-500/20 bg-emerald-500/5"
-                              : "border-slate-800 bg-slate-950"
+                              ? "border-emerald-200 bg-emerald-50/60"
+                              : "border-slate-200 bg-white hover:border-slate-300"
                           }`}
                         >
 
                           <div className="flex items-center gap-4">
+
+                            {/* Completion button */}
 
                             <button
                               type="button"
@@ -436,8 +429,8 @@ const Recovery = () => {
                               }
                               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition ${
                                 item.completed
-                                  ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                                  : "border-slate-700 text-slate-600 hover:border-blue-500 hover:text-blue-400"
+                                  ? "border-emerald-500 bg-emerald-100 text-emerald-600"
+                                  : "border-slate-300 bg-white text-slate-400 hover:border-emerald-500 hover:text-emerald-600"
                               }`}
                               aria-label={
                                 item.completed
@@ -453,10 +446,10 @@ const Recovery = () => {
                             <div>
 
                               <h3
-                                className={`font-medium ${
+                                className={`font-semibold ${
                                   item.completed
                                     ? "text-slate-400 line-through"
-                                    : "text-white"
+                                    : "text-slate-800"
                                 }`}
                               >
                                 {item.exercise}
@@ -471,10 +464,10 @@ const Recovery = () => {
                           </div>
 
                           <span
-                            className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${
+                            className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${
                               item.completed
-                                ? "bg-emerald-500/10 text-emerald-400"
-                                : "bg-blue-500/10 text-blue-400"
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-slate-100 text-slate-500"
                             }`}
                           >
                             {item.completed
@@ -497,24 +490,22 @@ const Recovery = () => {
                   ADD EXERCISE
               ================================== */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-900/[0.02] sm:p-6">
 
                 <div className="flex items-center gap-3">
 
-                  <div className="rounded-xl bg-blue-500/10 p-3 text-blue-400">
+                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
                     <Plus size={21} />
                   </div>
 
                   <div>
-
-                    <h2 className="font-semibold">
+                    <h2 className="font-bold text-slate-900">
                       Add Recovery Exercise
                     </h2>
 
                     <p className="text-sm text-slate-500">
                       Build your routine
                     </p>
-
                   </div>
 
                 </div>
@@ -524,9 +515,10 @@ const Recovery = () => {
                   className="mt-6 space-y-4"
                 >
 
-                  <div>
+                  {/* Exercise */}
 
-                    <label className="mb-2 block text-sm text-slate-300">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
                       Exercise
                     </label>
 
@@ -540,14 +532,14 @@ const Recovery = () => {
                       }
                       placeholder="Shoulder stretch"
                       required
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none transition focus:border-blue-500"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
                     />
-
                   </div>
 
-                  <div>
+                  {/* Duration */}
 
-                    <label className="mb-2 block text-sm text-slate-300">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
                       Duration (minutes)
                     </label>
 
@@ -562,15 +554,16 @@ const Recovery = () => {
                       }
                       placeholder="10"
                       required
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none transition focus:border-blue-500"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
                     />
-
                   </div>
+
+                  {/* Add button */}
 
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-medium transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Plus size={18} />
 

@@ -1,5 +1,12 @@
+
 import { useEffect, useState } from "react";
-import { Activity, CheckCircle2, Flame, Timer, Dumbbell } from "lucide-react";
+import {
+  Activity,
+  CheckCircle2,
+  Flame,
+  Timer,
+  Dumbbell,
+} from "lucide-react";
 import type { FormEvent } from "react";
 
 import Sidebar from "../components/layout/Sidebar";
@@ -21,9 +28,9 @@ const Performance = () => {
 
   const [exercise, setExercise] = useState("");
   const [duration, setDuration] = useState("");
-  const [intensity, setIntensity] = useState<"low" | "moderate" | "high">(
-    "moderate",
-  );
+  const [intensity, setIntensity] = useState<
+    "low" | "moderate" | "high"
+  >("moderate");
   const [calories, setCalories] = useState("");
 
   const [loading, setLoading] = useState(false);
@@ -48,10 +55,12 @@ const Performance = () => {
       console.error("GET WORKOUTS ERROR:", error);
 
       console.log("GET STATUS:", error.response?.status);
-
       console.log("GET RESPONSE:", error.response?.data);
 
-      setError(error.response?.data?.message || "Unable to load workouts.");
+      setError(
+        error.response?.data?.message ||
+          "Unable to load workouts."
+      );
     } finally {
       setFetching(false);
     }
@@ -65,7 +74,9 @@ const Performance = () => {
   // LOG WORKOUT
   // ==========================================
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault();
 
     setError("");
@@ -98,34 +109,48 @@ const Performance = () => {
 
       console.log("SENDING WORKOUT:", workoutData);
 
-      const response = await api.post("/workouts", workoutData);
+      const response = await api.post(
+        "/workouts",
+        workoutData
+      );
 
-      console.log("CREATE WORKOUT RESPONSE:", response.data);
+      console.log(
+        "CREATE WORKOUT RESPONSE:",
+        response.data
+      );
 
       if (!response.data?.workout) {
-        throw new Error("Backend did not return the created workout.");
+        throw new Error(
+          "Backend did not return the created workout."
+        );
       }
 
-      setWorkouts((previous) => [response.data.workout, ...previous]);
+      setWorkouts((previous) => [
+        response.data.workout,
+        ...previous,
+      ]);
 
-      // Clear form
       setExercise("");
       setDuration("");
       setIntensity("moderate");
       setCalories("");
     } catch (error: any) {
-      console.error("CREATE WORKOUT ERROR:", error);
+      console.error(
+        "CREATE WORKOUT ERROR:",
+        error
+      );
 
       console.log("STATUS:", error.response?.status);
-
-      console.log("RESPONSE:", error.response?.data);
-
+      console.log(
+        "RESPONSE:",
+        error.response?.data
+      );
       console.log("MESSAGE:", error.message);
 
       setError(
         error.response?.data?.message ||
           error.message ||
-          "Unable to log workout.",
+          "Unable to log workout."
       );
     } finally {
       setLoading(false);
@@ -139,326 +164,548 @@ const Performance = () => {
   const totalWorkouts = workouts.length;
 
   const totalMinutes = workouts.reduce(
-    (total, workout) => total + Number(workout.duration || 0),
-    0,
+    (total, workout) =>
+      total + Number(workout.duration || 0),
+    0
   );
 
   const totalCalories = workouts.reduce(
-    (total, workout) => total + Number(workout.calories || 0),
-    0,
+    (total, workout) =>
+      total + Number(workout.calories || 0),
+    0
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-[#f8faf9] text-slate-900">
       <div className="flex min-h-screen">
-        {/* SIDEBAR */}
 
         <Sidebar />
 
         <div className="min-w-0 flex-1">
-          {/* TOPBAR */}
 
           <Topbar />
 
-          <main className="px-6 py-8 lg:px-8">
-            {/* HEADER */}
+          <main className="relative overflow-hidden px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
 
-            <section>
-              <p className="text-sm font-medium text-blue-400">Performance</p>
+            {/* Landing page style background glow */}
 
-              <h1 className="mt-2 text-3xl font-bold tracking-tight">
-                Training Performance
-              </h1>
+            <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-[450px] w-[650px] -translate-x-1/2 rounded-full bg-emerald-200/20 blur-3xl" />
 
-              <p className="mt-2 max-w-2xl text-slate-400">
-                Track your workouts, training volume and fitness progress.
-              </p>
-            </section>
+            <div className="mx-auto max-w-7xl">
 
-            {/* STATS */}
+              {/* ==================================
+                  HEADER
+              ================================== */}
 
-            <section className="mt-8 grid gap-4 sm:grid-cols-3">
-              {/* WORKOUTS */}
+              <section>
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">Workouts</p>
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
 
-                    <p className="mt-2 text-3xl font-bold">{totalWorkouts}</p>
+                  <Activity className="h-4 w-4" />
 
-                    <p className="mt-1 text-xs text-slate-500">Total logged</p>
-                  </div>
+                  Performance Tracking
 
-                  <div className="rounded-xl bg-blue-500/10 p-3 text-blue-400">
-                    <Dumbbell size={22} />
-                  </div>
-                </div>
-              </div>
-
-              {/* TRAINING TIME */}
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">Training Time</p>
-
-                    <p className="mt-2 text-3xl font-bold">{totalMinutes}</p>
-
-                    <p className="mt-1 text-xs text-slate-500">Minutes</p>
-                  </div>
-
-                  <div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-400">
-                    <Timer size={22} />
-                  </div>
-                </div>
-              </div>
-
-              {/* CALORIES */}
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">Calories</p>
-
-                    <p className="mt-2 text-3xl font-bold">{totalCalories}</p>
-
-                    <p className="mt-1 text-xs text-slate-500">Total burned</p>
-                  </div>
-
-                  <div className="rounded-xl bg-orange-500/10 p-3 text-orange-400">
-                    <Flame size={22} />
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* MAIN CONTENT */}
-
-            <section className="mt-6 grid gap-6 xl:grid-cols-3">
-              {/* LOG WORKOUT */}
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-blue-500/10 p-3 text-blue-400">
-                    <Activity size={21} />
-                  </div>
-
-                  <div>
-                    <h2 className="font-semibold">Log Workout</h2>
-
-                    <p className="text-sm text-slate-500">
-                      Record today's training
-                    </p>
-                  </div>
                 </div>
 
-                {/* ERROR */}
+                <h1 className="mt-5 text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">
+                  Training Performance
+                </h1>
 
-                {error && (
-                  <div className="mt-5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                    {error}
-                  </div>
-                )}
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+                  Track your workouts, training volume and
+                  fitness progress in one place.
+                </p>
 
-                {/* FORM */}
+              </section>
 
-                <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-                  {/* EXERCISE */}
+              {/* ==================================
+                  ERROR
+              ================================== */}
 
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">
-                      Exercise
-                    </label>
+              {error && (
+                <div className="mt-6 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
 
-                    <input
-                      type="text"
-                      value={exercise}
-                      onChange={(event) => setExercise(event.target.value)}
-                      placeholder="Running"
-                      required
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none transition focus:border-blue-500"
-                    />
-                  </div>
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
 
-                  {/* DURATION */}
+                  {error}
 
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">
-                      Duration (minutes)
-                    </label>
+                </div>
+              )}
 
-                    <input
-                      type="number"
-                      value={duration}
-                      onChange={(event) => setDuration(event.target.value)}
-                      placeholder="30"
-                      min="1"
-                      required
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none transition focus:border-blue-500"
-                    />
-                  </div>
+              {/* ==================================
+                  STATS
+              ================================== */}
 
-                  {/* INTENSITY */}
+              <section className="mt-8 grid gap-4 sm:grid-cols-3">
 
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">
-                      Intensity
-                    </label>
+                {/* WORKOUTS */}
 
-                    <select
-                      value={intensity}
-                      onChange={(event) =>
-                        setIntensity(
-                          event.target.value as "low" | "moderate" | "high",
-                        )
-                      }
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none transition focus:border-blue-500"
-                    >
-                      <option value="low">Low</option>
+                <div className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-slate-900/5">
 
-                      <option value="moderate">Moderate</option>
+                  <div className="flex items-start justify-between">
 
-                      <option value="high">High</option>
-                    </select>
+                    <div>
+
+                      <p className="text-sm font-medium text-slate-500">
+                        Workouts
+                      </p>
+
+                      <p className="mt-3 text-3xl font-black tracking-tight">
+                        {totalWorkouts}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-400">
+                        Total logged
+                      </p>
+
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50">
+                      <Dumbbell className="h-5 w-5 text-emerald-600" />
+                    </div>
+
                   </div>
 
-                  {/* CALORIES */}
+                </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">
-                      Calories
-                    </label>
+                {/* TRAINING TIME */}
 
-                    <input
-                      type="number"
-                      value={calories}
-                      onChange={(event) => setCalories(event.target.value)}
-                      placeholder="250"
-                      min="0"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none transition focus:border-blue-500"
-                    />
+                <div className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-slate-900/5">
+
+                  <div className="flex items-start justify-between">
+
+                    <div>
+
+                      <p className="text-sm font-medium text-slate-500">
+                        Training Time
+                      </p>
+
+                      <p className="mt-3 text-3xl font-black tracking-tight">
+                        {totalMinutes}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-400">
+                        Minutes
+                      </p>
+
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50">
+                      <Timer className="h-5 w-5 text-blue-500" />
+                    </div>
+
                   </div>
 
-                  {/* SUBMIT */}
+                </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                {/* CALORIES */}
+
+                <div className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl hover:shadow-slate-900/5">
+
+                  <div className="flex items-start justify-between">
+
+                    <div>
+
+                      <p className="text-sm font-medium text-slate-500">
+                        Calories
+                      </p>
+
+                      <p className="mt-3 text-3xl font-black tracking-tight">
+                        {totalCalories}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-400">
+                        Total burned
+                      </p>
+
+                    </div>
+
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-50">
+                      <Flame className="h-5 w-5 text-orange-500" />
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </section>
+
+              {/* ==================================
+                  MAIN CONTENT
+              ================================== */}
+
+              <section className="mt-6 grid gap-6 xl:grid-cols-3">
+
+                {/* ==================================
+                    LOG WORKOUT
+                ================================== */}
+
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+
+                  <div className="flex items-start gap-4">
+
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white">
+                      <Activity size={21} />
+                    </div>
+
+                    <div>
+
+                      <p className="text-sm font-bold uppercase tracking-[0.15em] text-emerald-600">
+                        Training
+                      </p>
+
+                      <h2 className="mt-1 text-xl font-black">
+                        Log Workout
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        Record today's training.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  {/* ERROR */}
+
+                  {error && (
+                    <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                      {error}
+                    </div>
+                  )}
+
+                  {/* FORM */}
+
+                  <form
+                    onSubmit={handleSubmit}
+                    className="mt-7 space-y-4"
                   >
-                    {loading ? "Logging Workout..." : "Log Workout"}
-                  </button>
-                </form>
-              </div>
 
-              {/* WORKOUT HISTORY */}
+                    {/* EXERCISE */}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 xl:col-span-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold">Workout History</h2>
+                    <div>
 
-                    <p className="mt-1 text-sm text-slate-500">
-                      Your recent training sessions
-                    </p>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Exercise
+                      </label>
+
+                      <input
+                        type="text"
+                        value={exercise}
+                        onChange={(event) =>
+                          setExercise(
+                            event.target.value
+                          )
+                        }
+                        placeholder="Running"
+                        required
+                        className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                      />
+
+                    </div>
+
+                    {/* DURATION */}
+
+                    <div>
+
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Duration (minutes)
+                      </label>
+
+                      <input
+                        type="number"
+                        value={duration}
+                        onChange={(event) =>
+                          setDuration(
+                            event.target.value
+                          )
+                        }
+                        placeholder="30"
+                        min="1"
+                        required
+                        className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                      />
+
+                    </div>
+
+                    {/* INTENSITY */}
+
+                    <div>
+
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Intensity
+                      </label>
+
+                      <select
+                        value={intensity}
+                        onChange={(event) =>
+                          setIntensity(
+                            event.target.value as
+                              | "low"
+                              | "moderate"
+                              | "high"
+                          )
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                      >
+
+                        <option value="low">
+                          Low
+                        </option>
+
+                        <option value="moderate">
+                          Moderate
+                        </option>
+
+                        <option value="high">
+                          High
+                        </option>
+
+                      </select>
+
+                    </div>
+
+                    {/* CALORIES */}
+
+                    <div>
+
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Calories
+                      </label>
+
+                      <input
+                        type="number"
+                        value={calories}
+                        onChange={(event) =>
+                          setCalories(
+                            event.target.value
+                          )
+                        }
+                        placeholder="250"
+                        min="0"
+                        className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                      />
+
+                    </div>
+
+                    {/* SUBMIT */}
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="group flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+
+                      <Dumbbell className="h-4 w-4 transition group-hover:scale-110" />
+
+                      {loading
+                        ? "Logging Workout..."
+                        : "Log Workout"}
+
+                    </button>
+
+                  </form>
+
+                  {/* HELPER */}
+
+                  <div className="mt-6 rounded-2xl bg-emerald-50 p-4">
+
+                    <div className="flex items-start gap-3">
+
+                      <Activity className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+
+                      <p className="text-xs leading-5 text-emerald-700">
+                        Keep your workouts logged to build a
+                        clearer picture of your training progress.
+                      </p>
+
+                    </div>
+
                   </div>
 
-                  <Dumbbell size={21} className="text-blue-400" />
                 </div>
 
-                <div className="mt-6">
-                  {/* LOADING */}
+                {/* ==================================
+                    WORKOUT HISTORY
+                ================================== */}
 
-                  {fetching && (
-                    <div className="py-12 text-center text-sm text-slate-500">
-                      Loading workouts...
-                    </div>
-                  )}
+                <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-7 xl:col-span-2">
 
-                  {/* EMPTY */}
+                  <div className="flex items-center justify-between">
 
-                  {!fetching && workouts.length === 0 && (
-                    <div className="rounded-xl border border-dashed border-slate-700 py-12 text-center">
-                      <Dumbbell size={32} className="mx-auto text-slate-600" />
+                    <div>
 
-                      <p className="mt-4 font-medium text-slate-400">
-                        No workouts yet
+                      <p className="text-sm font-bold uppercase tracking-[0.15em] text-emerald-600">
+                        Training history
                       </p>
 
-                      <p className="mt-1 text-sm text-slate-600">
-                        Log your first workout to start tracking performance.
+                      <h2 className="mt-2 text-2xl font-black tracking-tight">
+                        Workout History
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        Your recent training sessions
                       </p>
+
                     </div>
-                  )}
 
-                  {/* WORKOUTS */}
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50">
+                      <Dumbbell className="h-5 w-5 text-emerald-600" />
+                    </div>
 
-                  {!fetching && workouts.length > 0 && (
-                    <div className="space-y-3">
-                      {workouts.map((workout) => (
-                        <div
-                          key={workout._id}
-                          className="flex flex-col gap-4 rounded-xl border border-slate-800 bg-slate-950 p-4 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="rounded-lg bg-blue-500/10 p-3 text-blue-400">
-                              <Activity size={20} />
-                            </div>
+                  </div>
 
-                            <div>
-                              <h3 className="font-medium">
-                                {workout.exercise}
-                              </h3>
+                  <div className="mt-7">
 
-                              <p className="mt-1 text-xs text-slate-500">
-                                {new Date(workout.date).toLocaleDateString()}
-                              </p>
-                            </div>
+                    {/* LOADING */}
+
+                    {fetching && (
+                      <div className="rounded-2xl border border-slate-200 bg-[#f8faf9] py-14 text-center">
+
+                        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-600" />
+
+                        <p className="mt-4 text-sm font-medium text-slate-500">
+                          Loading workouts...
+                        </p>
+
+                      </div>
+                    )}
+
+                    {/* EMPTY */}
+
+                    {!fetching &&
+                      workouts.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-slate-300 bg-[#f8faf9] p-10 text-center">
+
+                          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+
+                            <Dumbbell
+                              size={27}
+                              className="text-emerald-500"
+                            />
+
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-5 text-sm">
-                            <div>
-                              <p className="text-xs text-slate-600">Duration</p>
+                          <p className="mt-5 font-bold text-slate-700">
+                            No workouts yet
+                          </p>
 
-                              <p className="mt-1 text-slate-300">
-                                {workout.duration} min
-                              </p>
-                            </div>
+                          <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+                            Log your first workout to start
+                            tracking your performance.
+                          </p>
 
-                            <div>
-                              <p className="text-xs text-slate-600">
-                                Intensity
-                              </p>
-
-                              <p className="mt-1 capitalize text-slate-300">
-                                {workout.intensity}
-                              </p>
-                            </div>
-
-                            <div>
-                              <p className="text-xs text-slate-600">Calories</p>
-
-                              <p className="mt-1 text-slate-300">
-                                {workout.calories}
-                              </p>
-                            </div>
-
-                            {workout.completed && (
-                              <CheckCircle2
-                                size={20}
-                                className="text-emerald-400"
-                              />
-                            )}
-                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      )}
+
+                    {/* WORKOUTS */}
+
+                    {!fetching &&
+                      workouts.length > 0 && (
+                        <div className="space-y-3">
+
+                          {workouts.map((workout) => (
+
+                            <div
+                              key={workout._id}
+                              className="rounded-2xl border border-slate-200 bg-[#f8faf9] p-4 transition duration-300 hover:border-emerald-200 hover:bg-white hover:shadow-md"
+                            >
+
+                              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+                                {/* WORKOUT INFO */}
+
+                                <div className="flex min-w-0 items-center gap-4">
+
+                                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+
+                                    <Activity
+                                      size={19}
+                                      className="text-emerald-600"
+                                    />
+
+                                  </div>
+
+                                  <div className="min-w-0">
+
+                                    <h3 className="truncate font-bold text-slate-900">
+                                      {workout.exercise}
+                                    </h3>
+
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {new Date(
+                                        workout.date
+                                      ).toLocaleDateString()}
+                                    </p>
+
+                                  </div>
+
+                                </div>
+
+                                {/* WORKOUT DETAILS */}
+
+                                <div className="flex flex-wrap items-center gap-3 sm:gap-5">
+
+                                  <div>
+                                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                                      Duration
+                                    </p>
+
+                                    <p className="mt-1 text-sm font-semibold text-slate-700">
+                                      {workout.duration} min
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                                      Intensity
+                                    </p>
+
+                                    <p className="mt-1 text-sm font-semibold capitalize text-slate-700">
+                                      {workout.intensity}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                                      Calories
+                                    </p>
+
+                                    <p className="mt-1 text-sm font-semibold text-slate-700">
+                                      {workout.calories}
+                                    </p>
+                                  </div>
+
+                                  {workout.completed && (
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50">
+                                      <CheckCircle2
+                                        size={18}
+                                        className="text-emerald-600"
+                                      />
+                                    </div>
+                                  )}
+
+                                </div>
+
+                              </div>
+
+                            </div>
+
+                          ))}
+
+                        </div>
+                      )}
+
+                  </div>
+
                 </div>
-              </div>
-            </section>
+
+              </section>
+
+            </div>
+
           </main>
+
         </div>
       </div>
     </div>

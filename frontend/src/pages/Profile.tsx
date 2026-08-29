@@ -48,7 +48,6 @@ interface MetricCardProps {
 }
 
 const Profile = () => {
-  // Get logged-in user
   const storedUser = localStorage.getItem("user");
 
   let initialUser: User = {};
@@ -58,28 +57,40 @@ const Profile = () => {
       initialUser = JSON.parse(storedUser);
     }
   } catch (error) {
-    console.error("Unable to read user from localStorage:", error);
+    console.error(
+      "Unable to read user from localStorage:",
+      error
+    );
   }
 
-  const [user, setUser] = useState<User>(initialUser);
+  const [user, setUser] =
+    useState<User>(initialUser);
 
-  const [editing, setEditing] = useState<boolean>(false);
+  const [editing, setEditing] =
+    useState<boolean>(false);
 
-  const [formData, setFormData] = useState<ProfileForm>({
-    name: initialUser.name || "",
-    email: initialUser.email || "",
-    age: initialUser.age?.toString() || "",
-    height: initialUser.height?.toString() || "",
-    weight: initialUser.weight?.toString() || "",
-    fitnessGoal:
-      initialUser.fitnessGoal || "general-fitness",
-  });
+  const [formData, setFormData] =
+    useState<ProfileForm>({
+      name: initialUser.name || "",
+      email: initialUser.email || "",
+      age:
+        initialUser.age?.toString() || "",
+      height:
+        initialUser.height?.toString() || "",
+      weight:
+        initialUser.weight?.toString() || "",
+      fitnessGoal:
+        initialUser.fitnessGoal ||
+        "general-fitness",
+    });
 
-  // --------------------------------------------------
-  // Format fitness goal
-  // --------------------------------------------------
+  // ==========================================
+  // FORMAT GOAL
+  // ==========================================
 
-  const formatGoal = (goal?: string): string => {
+  const formatGoal = (
+    goal?: string
+  ): string => {
     if (!goal) {
       return "Not set";
     }
@@ -88,21 +99,23 @@ const Profile = () => {
       .split("-")
       .map(
         (word) =>
-          word.charAt(0).toUpperCase() + word.slice(1)
+          word.charAt(0).toUpperCase() +
+          word.slice(1)
       )
       .join(" ");
   };
 
-  // --------------------------------------------------
-  // Calculate BMI
-  // --------------------------------------------------
+  // ==========================================
+  // BMI
+  // ==========================================
 
   const calculateBMI = (): string => {
     if (!user.height || !user.weight) {
       return "--";
     }
 
-    const heightInMeters = user.height / 100;
+    const heightInMeters =
+      user.height / 100;
 
     const bmi =
       user.weight /
@@ -113,9 +126,9 @@ const Profile = () => {
 
   const bmi = calculateBMI();
 
-  // --------------------------------------------------
-  // BMI category
-  // --------------------------------------------------
+  // ==========================================
+  // BMI CATEGORY
+  // ==========================================
 
   const getBMILabel = (): string => {
     if (bmi === "--") {
@@ -139,16 +152,17 @@ const Profile = () => {
     return "Obesity range";
   };
 
-  // --------------------------------------------------
-  // Handle input changes
-  // --------------------------------------------------
+  // ==========================================
+  // HANDLE CHANGE
+  // ==========================================
 
   const handleChange = (
     event: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement
     >
   ) => {
-    const { name, value } = event.target;
+    const { name, value } =
+      event.target;
 
     setFormData((previous) => ({
       ...previous,
@@ -156,9 +170,9 @@ const Profile = () => {
     }));
   };
 
-  // --------------------------------------------------
-  // Save profile
-  // --------------------------------------------------
+  // ==========================================
+  // SAVE
+  // ==========================================
 
   const handleSave = () => {
     const updatedUser: User = {
@@ -180,7 +194,8 @@ const Profile = () => {
         ? Number(formData.weight)
         : undefined,
 
-      fitnessGoal: formData.fitnessGoal,
+      fitnessGoal:
+        formData.fitnessGoal,
     };
 
     setUser(updatedUser);
@@ -193,68 +208,69 @@ const Profile = () => {
     setEditing(false);
   };
 
-  // --------------------------------------------------
-  // Cancel editing
-  // --------------------------------------------------
+  // ==========================================
+  // CANCEL
+  // ==========================================
 
   const handleCancel = () => {
     setFormData({
       name: user.name || "",
       email: user.email || "",
-      age: user.age?.toString() || "",
-      height: user.height?.toString() || "",
-      weight: user.weight?.toString() || "",
+      age:
+        user.age?.toString() || "",
+      height:
+        user.height?.toString() || "",
+      weight:
+        user.weight?.toString() || "",
       fitnessGoal:
-        user.fitnessGoal || "general-fitness",
+        user.fitnessGoal ||
+        "general-fitness",
     });
 
     setEditing(false);
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-[#f8faf9] text-slate-900">
       <div className="flex min-h-screen">
 
-        {/* Sidebar */}
+        {/* SIDEBAR */}
         <Sidebar />
 
-        {/* Main */}
         <div className="min-w-0 flex-1">
 
-          {/* Topbar */}
+          {/* TOPBAR */}
           <Topbar />
 
           <main className="px-6 py-8 lg:px-8">
 
-            {/* ====================================== */}
             {/* HEADER */}
-            {/* ====================================== */}
-
             <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 
               <div>
-                <p className="text-sm font-medium text-blue-400">
+                <p className="text-sm font-semibold text-emerald-600">
                   Athlete Profile
                 </p>
 
-                <h1 className="mt-2 text-3xl font-bold tracking-tight">
+                <h1 className="mt-2 text-3xl font-black tracking-tight">
                   Your Profile
                 </h1>
 
-                <p className="mt-2 text-slate-400">
-                  Manage your athlete information and
-                  training profile.
+                <p className="mt-2 text-slate-500">
+                  Manage your athlete information
+                  and training profile.
                 </p>
               </div>
 
               {!editing ? (
                 <button
                   type="button"
-                  onClick={() => setEditing(true)}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold transition hover:bg-blue-500"
+                  onClick={() =>
+                    setEditing(true)
+                  }
+                  className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
                 >
                   <Pencil size={17} />
-
                   Edit Profile
                 </button>
               ) : (
@@ -263,20 +279,18 @@ const Profile = () => {
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="flex items-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                   >
                     <X size={17} />
-
                     Cancel
                   </button>
 
                   <button
                     type="button"
                     onClick={handleSave}
-                    className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold transition hover:bg-blue-500"
+                    className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                   >
                     <Save size={17} />
-
                     Save Changes
                   </button>
 
@@ -284,58 +298,56 @@ const Profile = () => {
               )}
             </section>
 
-            {/* ====================================== */}
             {/* PROFILE HEADER */}
-            {/* ====================================== */}
-
-            <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
 
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
                   <UserRound size={36} />
                 </div>
 
                 <div>
-                  <h2 className="text-2xl font-bold">
-                    {user.name || "Athlete"}
+                  <h2 className="text-2xl font-black text-slate-900">
+                    {user.name ||
+                      "Athlete"}
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    {user.email || "No email available"}
+                    {user.email ||
+                      "No email available"}
                   </p>
 
-                  <div className="mt-3 inline-flex rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-400">
-                    {formatGoal(user.fitnessGoal)}
+                  <div className="mt-3 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    {formatGoal(
+                      user.fitnessGoal
+                    )}
                   </div>
                 </div>
 
               </div>
             </section>
 
-            {/* ====================================== */}
             {/* PERSONAL INFORMATION */}
-            {/* ====================================== */}
-
-            <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
               <div className="mb-6">
-                <h2 className="text-lg font-semibold">
+                <h2 className="text-lg font-bold">
                   Personal Information
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  Your basic athlete information.
+                  Your basic athlete
+                  information.
                 </p>
               </div>
 
               {editing ? (
-
                 <div className="grid gap-5 md:grid-cols-2">
 
-                  {/* Name */}
+                  {/* NAME */}
                   <div>
-                    <label className="mb-2 block text-sm text-slate-400">
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
                       Full Name
                     </label>
 
@@ -343,14 +355,16 @@ const Profile = () => {
                       type="text"
                       name="name"
                       value={formData.name}
-                      onChange={handleChange}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                      onChange={
+                        handleChange
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
                     />
                   </div>
 
-                  {/* Email */}
+                  {/* EMAIL */}
                   <div>
-                    <label className="mb-2 block text-sm text-slate-400">
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
                       Email
                     </label>
 
@@ -358,14 +372,16 @@ const Profile = () => {
                       type="email"
                       name="email"
                       value={formData.email}
-                      onChange={handleChange}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                      onChange={
+                        handleChange
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
                     />
                   </div>
 
-                  {/* Age */}
+                  {/* AGE */}
                   <div>
-                    <label className="mb-2 block text-sm text-slate-400">
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
                       Age
                     </label>
 
@@ -373,22 +389,28 @@ const Profile = () => {
                       type="number"
                       name="age"
                       value={formData.age}
-                      onChange={handleChange}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                      onChange={
+                        handleChange
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
                     />
                   </div>
 
-                  {/* Goal */}
+                  {/* GOAL */}
                   <div>
-                    <label className="mb-2 block text-sm text-slate-400">
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
                       Fitness Goal
                     </label>
 
                     <select
                       name="fitnessGoal"
-                      value={formData.fitnessGoal}
-                      onChange={handleChange}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                      value={
+                        formData.fitnessGoal
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
                     >
                       <option value="general-fitness">
                         General Fitness
@@ -412,9 +434,9 @@ const Profile = () => {
                     </select>
                   </div>
 
-                  {/* Height */}
+                  {/* HEIGHT */}
                   <div>
-                    <label className="mb-2 block text-sm text-slate-400">
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
                       Height (cm)
                     </label>
 
@@ -422,14 +444,16 @@ const Profile = () => {
                       type="number"
                       name="height"
                       value={formData.height}
-                      onChange={handleChange}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                      onChange={
+                        handleChange
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
                     />
                   </div>
 
-                  {/* Weight */}
+                  {/* WEIGHT */}
                   <div>
-                    <label className="mb-2 block text-sm text-slate-400">
+                    <label className="mb-2 block text-sm font-medium text-slate-700">
                       Weight (kg)
                     </label>
 
@@ -437,31 +461,45 @@ const Profile = () => {
                       type="number"
                       name="weight"
                       value={formData.weight}
-                      onChange={handleChange}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-blue-500"
+                      onChange={
+                        handleChange
+                      }
+                      className="w-full rounded-xl border border-slate-200 bg-[#f8faf9] px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10"
                     />
                   </div>
 
                 </div>
-
               ) : (
-
                 <div className="grid gap-4 md:grid-cols-2">
 
                   <InfoCard
-                    icon={<UserRound size={20} />}
+                    icon={
+                      <UserRound size={20} />
+                    }
                     label="Full Name"
-                    value={user.name || "Not set"}
+                    value={
+                      user.name ||
+                      "Not set"
+                    }
                   />
 
                   <InfoCard
-                    icon={<Mail size={20} />}
+                    icon={
+                      <Mail size={20} />
+                    }
                     label="Email"
-                    value={user.email || "Not set"}
+                    value={
+                      user.email ||
+                      "Not set"
+                    }
                   />
 
                   <InfoCard
-                    icon={<CalendarDays size={20} />}
+                    icon={
+                      <CalendarDays
+                        size={20}
+                      />
+                    }
                     label="Age"
                     value={
                       user.age
@@ -471,7 +509,9 @@ const Profile = () => {
                   />
 
                   <InfoCard
-                    icon={<Target size={20} />}
+                    icon={
+                      <Target size={20} />
+                    }
                     label="Fitness Goal"
                     value={formatGoal(
                       user.fitnessGoal
@@ -482,27 +522,27 @@ const Profile = () => {
               )}
             </section>
 
-            {/* ====================================== */}
             {/* BODY METRICS */}
-            {/* ====================================== */}
-
-            <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
               <div className="mb-6">
-                <h2 className="text-lg font-semibold">
+                <h2 className="text-lg font-bold">
                   Body Metrics
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  Metrics used to personalize your
-                  TrainSafe recommendations.
+                  Metrics used to personalize
+                  your TrainSafe
+                  recommendations.
                 </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
 
                 <MetricCard
-                  icon={<Ruler size={21} />}
+                  icon={
+                    <Ruler size={21} />
+                  }
                   label="Height"
                   value={
                     user.height
@@ -512,7 +552,9 @@ const Profile = () => {
                 />
 
                 <MetricCard
-                  icon={<Scale size={21} />}
+                  icon={
+                    <Scale size={21} />
+                  }
                   label="Weight"
                   value={
                     user.weight
@@ -522,7 +564,9 @@ const Profile = () => {
                 />
 
                 <MetricCard
-                  icon={<Activity size={21} />}
+                  icon={
+                    <Activity size={21} />
+                  }
                   label="BMI"
                   value={bmi}
                   subtitle={getBMILabel()}
@@ -531,40 +575,42 @@ const Profile = () => {
               </div>
             </section>
 
-            {/* ====================================== */}
             {/* FITNESS GOAL */}
-            {/* ====================================== */}
-
-            <section className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
               <div className="flex items-center gap-3">
 
-                <div className="rounded-xl bg-blue-500/10 p-3 text-blue-400">
+                <div className="rounded-xl bg-emerald-50 p-3 text-emerald-600">
                   <Target size={22} />
                 </div>
 
                 <div>
-                  <h2 className="font-semibold">
+                  <h2 className="font-bold">
                     Primary Fitness Goal
                   </h2>
 
                   <p className="text-sm text-slate-500">
-                    Your current training objective
+                    Your current training
+                    objective
                   </p>
                 </div>
 
               </div>
 
-              <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950 p-5">
+              <div className="mt-5 rounded-xl border border-slate-200 bg-[#f8faf9] p-5">
 
-                <p className="text-2xl font-bold">
-                  {formatGoal(user.fitnessGoal)}
+                <p className="text-2xl font-black">
+                  {formatGoal(
+                    user.fitnessGoal
+                  )}
                 </p>
 
-                <p className="mt-2 text-sm text-slate-500">
-                  TrainSafe will use this goal to
-                  personalize future training,
-                  recovery and nutrition features.
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  TrainSafe will use this
+                  goal to personalize
+                  future training,
+                  recovery and nutrition
+                  features.
                 </p>
 
               </div>
@@ -577,9 +623,9 @@ const Profile = () => {
   );
 };
 
-// ==================================================
+// ==========================================
 // INFO CARD
-// ==================================================
+// ==========================================
 
 const InfoCard = ({
   icon,
@@ -587,18 +633,18 @@ const InfoCard = ({
   value,
 }: InfoCardProps) => {
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-slate-800 bg-slate-950 p-4">
+    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-[#f8faf9] p-4 transition hover:border-emerald-200">
 
-      <div className="rounded-lg bg-slate-900 p-2.5 text-slate-400">
+      <div className="rounded-lg bg-white p-2.5 text-emerald-600 shadow-sm">
         {icon}
       </div>
 
       <div>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs font-medium text-slate-400">
           {label}
         </p>
 
-        <p className="mt-1 font-medium">
+        <p className="mt-1 font-semibold text-slate-800">
           {value}
         </p>
       </div>
@@ -607,9 +653,9 @@ const InfoCard = ({
   );
 };
 
-// ==================================================
+// ==========================================
 // METRIC CARD
-// ==================================================
+// ==========================================
 
 const MetricCard = ({
   icon,
@@ -618,22 +664,24 @@ const MetricCard = ({
   subtitle,
 }: MetricCardProps) => {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 p-5">
+    <div className="rounded-xl border border-slate-200 bg-[#f8faf9] p-5 transition hover:border-emerald-200">
 
-      <div className="flex items-center gap-3 text-slate-400">
+      <div className="flex items-center gap-3 text-emerald-600">
+
         {icon}
 
-        <span className="text-sm">
+        <span className="text-sm font-medium text-slate-500">
           {label}
         </span>
+
       </div>
 
-      <p className="mt-4 text-2xl font-bold">
+      <p className="mt-4 text-2xl font-black text-slate-900">
         {value}
       </p>
 
       {subtitle && (
-        <p className="mt-1 text-xs text-emerald-400">
+        <p className="mt-1 text-xs font-medium text-emerald-600">
           {subtitle}
         </p>
       )}
