@@ -1,4 +1,6 @@
+
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -6,246 +8,428 @@ import {
 
 import { PoseSocket } from "../../services/poseSocket";
 
+interface Landmark {
+  x: number;
+  y: number;
+  z?: number;
+  visibility?: number;
+}
+
+interface AIResponse {
+  success?: boolean;
+  message?: string;
+  received?: number;
+
+  landmarks?: Landmark[];
+
+  risk?: number;
+  risk_level?: string;
+
+  feedback?: string;
+  recommendation?: string;
+}
+
+const VIDEO_WIDTH = 640;
+const VIDEO_HEIGHT = 480;
+
+const SEND_INTERVAL = 100; // 10 FPS
 
 const LivePoseCamera = () => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // ==========================================
-  // REFERENCES
-  // ==========================================
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const videoRef =
-    useRef<HTMLVideoElement>(null);
+  const socketRef = useRef<PoseSocket | null>(null);
 
-  const canvasRef =
-    useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  const socketRef =
-    useRef<PoseSocket | null>(null);
+  const frameTimerRef = useRef<number | null>(null);
 
-  const streamRef =
-    useRef<MediaStream | null>(null);
+  const isRunningRef = useRef(false);
 
-  const frameTimerRef =
-    useRef<number | null>(null);
+  const [connected, setConnected] = useState(false);
 
+  const [cameraStarted, setCameraStarted] = useState(false);
 
-  // ==========================================
-  // STATE
-  // ==========================================
+  const [landmarks, setLandmarks] = useState<Landmark[]>([]);
 
-  const [connected, setConnected] =
-    useState(false);
+  const [risk, setRisk] = useState<number | null>(null);
 
-  const [cameraActive, setCameraActive] =
-    useState(false);
+  const [riskLevel, setRiskLevel] = useState("Waiting");
 
-  const [landmarks, setLandmarks] =
-    useState<any[]>([]);
+  const [feedback, setFeedback] = useState(
+    "Position yourself in front of the camera."
+  );
 
+  const [error, setError] = useState("");
 
-  // ==========================================
-  // COMPONENT MOUNT
-  // ==========================================
+  // ============================================================
+  // DRAW POSE
+  // ============================================================
 
-  useEffect(() => {
+  const drawPose = useCallback(
+    (points: Landmark[]) => {
+      const canvas = canvasRef.current;
 
-    startCamera();
+      if (!canvas) return;
 
-    return () => {
+      const ctx = canvas.getContext("2d");
 
-      // Stop camera
-      if (streamRef.current) {
+      if (!ctx) return;
 
-        streamRef.current
-          .getTracks()
-          .forEach((track) => {
-            track.stop();
-          });
-
-      }
-
-
-      // Stop frame loop
-      if (
-        frameTimerRef.current !== null
-      ) {
-
-        window.clearTimeout(
-          frameTimerRef.current
-        );
-
-      }
-
-
-      // Disconnect WebSocket
-      socketRef.current?.disconnect();
-
-    };
-
-  }, []);
-
-
-  // ==========================================
-  // START CAMERA
-  // ==========================================
-
-  const startCamera = async () => {
-
-    try {
-
-      console.log(
-        "📷 Starting camera..."
+      ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
       );
 
+      if (!points || points.length === 0) {
+        return;
+      }
+
+      /*
+       * MediaPipe pose connections.
+       *
+       * These indexes correspond to the standard
+       * 33-point MediaPipe Pose landmark model.
+       */
+
+      const connections: [number, number][] = [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 7],
+
+        [0, 4],
+        [4, 5],
+        [5, 6],
+        [6, 8],
+
+        [9, 10],
+
+        [11, 12],
+
+        [11, 13],
+        [13, 15],
+
+        [12, 14],
+        [14, 16],
+
+        [11, 23],
+        [12, 24],
+
+        [23, 24],
+
+        [23, 25],
+        [25, 27],
+        [27, 29],
+        [29, 31],
+
+        [24, 26],
+        [26, 28],
+        [28, 30],
+        [30, 32],
+
+        [27, 31],
+        [28, 32],
+      ];
+
+      // --------------------------------------------------------
+      // Draw skeleton
+      // --------------------------------------------------------
+
+      ctx.lineWidth = 4;
+
+      ctx.lineCap = "round";
+
+      ctx.strokeStyle = "#22c55e";
+
+      connections.forEach(([start, end]) => {
+        const a = points[start];
+
+        const b = points[end];
+
+        if (!a || !b) return;
+
+        if (
+          a.visibility !== undefined &&
+          a.visibility < 0.4
+        ) {
+          return;
+        }
+
+        if (
+          b.visibility !== undefined &&
+          b.visibility < 0.4
+        ) {
+          return;
+        }
+
+        const ax = a.x * canvas.width;
+
+        const ay = a.y * canvas.height;
+
+        const bx = b.x * canvas.width;
+
+        const by = b.y * canvas.height;
+
+        ctx.beginPath();
+
+        ctx.moveTo(ax, ay);
+
+        ctx.lineTo(bx, by);
+
+        ctx.stroke();
+      });
+
+      // --------------------------------------------------------
+      // Draw joints
+      // --------------------------------------------------------
+
+      points.forEach((point) => {
+        if (!point) return;
+
+        if (
+          point.visibility !== undefined &&
+          point.visibility < 0.4
+        ) {
+          return;
+        }
+
+        const x = point.x * canvas.width;
+
+        const y = point.y * canvas.height;
+
+        ctx.beginPath();
+
+        ctx.arc(
+          x,
+          y,
+          5,
+          0,
+          Math.PI * 2
+        );
+
+        ctx.fillStyle = "#ffffff";
+
+        ctx.fill();
+
+        ctx.lineWidth = 2;
+
+        ctx.strokeStyle = "#22c55e";
+
+        ctx.stroke();
+      });
+    },
+    []
+  );
+
+  // ============================================================
+  // HANDLE AI RESPONSE
+  // ============================================================
+
+  const handleAIResponse = useCallback(
+    (data: AIResponse) => {
+      console.log(
+        "🤖 TrainSafe AI:",
+        data
+      );
+
+      /*
+       * The AI service must eventually return:
+       *
+       * {
+       *   success: true,
+       *   landmarks: [...]
+       * }
+       */
+
+      if (
+        Array.isArray(data.landmarks)
+      ) {
+        setLandmarks(
+          data.landmarks
+        );
+
+        drawPose(
+          data.landmarks
+        );
+      }
+
+      // --------------------------------------------------------
+      // Risk
+      // --------------------------------------------------------
+
+      if (
+        typeof data.risk ===
+        "number"
+      ) {
+        setRisk(data.risk);
+      }
+
+      // --------------------------------------------------------
+      // Risk level
+      // --------------------------------------------------------
+
+      if (
+        typeof data.risk_level ===
+        "string"
+      ) {
+        setRiskLevel(
+          data.risk_level
+        );
+      }
+
+      // --------------------------------------------------------
+      // Feedback
+      // --------------------------------------------------------
+
+      if (
+        typeof data.feedback ===
+        "string"
+      ) {
+        setFeedback(
+          data.feedback
+        );
+      }
+
+      if (
+        typeof data.recommendation ===
+        "string"
+      ) {
+        setFeedback(
+          data.recommendation
+        );
+      }
+    },
+    [drawPose]
+  );
+
+  // ============================================================
+  // START CAMERA
+  // ============================================================
+
+  const startCamera = async () => {
+    try {
+      setError("");
 
       const stream =
-        await navigator.mediaDevices
-          .getUserMedia({
-
+        await navigator.mediaDevices.getUserMedia(
+          {
             video: {
-
-              width: 640,
-
-              height: 480,
-
+              width: VIDEO_WIDTH,
+              height: VIDEO_HEIGHT,
               facingMode: "user",
-
             },
 
             audio: false,
-
-          });
-
+          }
+        );
 
       streamRef.current =
         stream;
 
+      const video =
+        videoRef.current;
 
-      // Attach camera to video
-      if (videoRef.current) {
-
-        videoRef.current.srcObject =
-          stream;
-
-        await videoRef.current.play();
-
+      if (!video) {
+        throw new Error(
+          "Video element not available."
+        );
       }
 
+      video.srcObject =
+        stream;
 
-      setCameraActive(true);
+      await video.play();
 
-
-      console.log(
-        "✅ Camera started"
+      setCameraStarted(
+        true
       );
 
+      console.log(
+        "📷 Camera started"
+      );
 
-      // ========================================
-      // CREATE WEBSOCKET
-      // ========================================
+      // --------------------------------------------------------
+      // Create WebSocket
+      // --------------------------------------------------------
 
       const socket =
         new PoseSocket();
 
-
-      socket.connect(
-
-        // ======================================
-        // MESSAGE
-        // ======================================
-
-        (data) => {
-
-          console.log(
-            "🤖 AI response:",
-            data
-          );
-
-
-          if (
-            data &&
-            Array.isArray(
-              data.landmarks
-            )
-          ) {
-
-            setLandmarks(
-              data.landmarks
-            );
-
-          } else {
-
-            // Temporary response
-            setLandmarks([]);
-
-          }
-
-        },
-
-
-        // ======================================
-        // OPEN
-        // ======================================
-
-        () => {
-
-          console.log(
-            "🟢 AI WebSocket connected"
-          );
-
-
-          setConnected(true);
-
-
-          // Start sending camera frames
-          startFrameLoop();
-
-        },
-
-
-        // ======================================
-        // ERROR
-        // ======================================
-
-        (error: Event) => {
-
-          console.error(
-            "❌ AI WebSocket error:",
-            error
-          );
-
-
-          setConnected(false);
-
-        }
-
-      );
-
-
       socketRef.current =
         socket;
 
-    }
+      socket.connect(
+        handleAIResponse,
+        (socketError) => {
+          console.error(
+            "❌ AI WebSocket error:",
+            socketError
+          );
 
-    catch (error) {
+          setConnected(
+            false
+          );
 
-      console.error(
-        "❌ Camera error:",
-        error
+          setError(
+            "Unable to connect to TrainSafe AI."
+          );
+        },
+        () => {
+          console.log(
+            "🔌 AI WebSocket disconnected"
+          );
+
+          setConnected(
+            false
+          );
+        }
       );
 
-      setCameraActive(false);
+      /*
+       * Give WebSocket a moment to establish
+       * before starting the frame loop.
+       */
 
+      setTimeout(() => {
+        if (
+          socket.isConnected?.()
+        ) {
+          setConnected(
+            true
+          );
+
+          startFrameLoop();
+        }
+      }, 300);
+    } catch (err) {
+      console.error(
+        "Camera error:",
+        err
+      );
+
+      setError(
+        "Camera permission was denied or camera is unavailable."
+      );
     }
-
   };
 
-
-  // ==========================================
+  // ============================================================
   // FRAME LOOP
-  // ==========================================
+  // ============================================================
 
   const startFrameLoop = () => {
+    if (
+      isRunningRef.current
+    ) {
+      return;
+    }
+
+    isRunningRef.current =
+      true;
 
     const canvas =
       canvasRef.current;
@@ -253,353 +437,470 @@ const LivePoseCamera = () => {
     const video =
       videoRef.current;
 
-
     if (!canvas || !video) {
-
       console.error(
-        "❌ Canvas/video unavailable"
+        "Canvas or video not found."
       );
 
       return;
-
     }
 
+    canvas.width =
+      VIDEO_WIDTH;
 
-    const context =
+    canvas.height =
+      VIDEO_HEIGHT;
+
+    const ctx =
       canvas.getContext("2d");
 
-
-    if (!context) {
-
-      console.error(
-        "❌ Canvas context unavailable"
-      );
-
-      return;
-
-    }
-
+    if (!ctx) return;
 
     const sendFrame = () => {
-
-      // Check WebSocket
       if (
-        socketRef.current &&
-        !socketRef.current
-          .isConnected()
+        !isRunningRef.current
       ) {
-
-        frameTimerRef.current =
-          window.setTimeout(
-            sendFrame,
-            100
-          );
-
         return;
-
       }
 
-
-      // Check camera
       if (
         video.readyState >=
-        HTMLMediaElement
-          .HAVE_CURRENT_DATA
+        HTMLMediaElement.HAVE_CURRENT_DATA
       ) {
+        /*
+         * Draw current video frame
+         * to hidden canvas.
+         */
 
-        // Canvas resolution
-        canvas.width = 640;
-
-        canvas.height = 480;
-
-
-        // Draw camera frame
-        context.drawImage(
-
+        ctx.drawImage(
           video,
-
           0,
-
           0,
-
-          640,
-
-          480
-
+          VIDEO_WIDTH,
+          VIDEO_HEIGHT
         );
 
+        /*
+         * Convert image to JPEG.
+         */
 
-        // Convert to JPEG
         const image =
           canvas.toDataURL(
             "image/jpeg",
             0.6
           );
 
+        /*
+         * Send frame to Python
+         * FastAPI WebSocket.
+         */
 
-        // Send to AI
-        socketRef.current
-          ?.sendFrame(image);
-
+        if (
+          socketRef.current
+        ) {
+          socketRef.current.sendFrame(
+            image
+          );
+        }
       }
 
-
-      // Continue loop
       frameTimerRef.current =
         window.setTimeout(
           sendFrame,
-          100
+          SEND_INTERVAL
         );
-
     };
 
-
     sendFrame();
-
   };
 
+  // ============================================================
+  // STOP CAMERA
+  // ============================================================
 
-  // ==========================================
+  const stopCamera = () => {
+    isRunningRef.current =
+      false;
+
+    if (
+      frameTimerRef.current
+    ) {
+      clearTimeout(
+        frameTimerRef.current
+      );
+
+      frameTimerRef.current =
+        null;
+    }
+
+    if (
+      streamRef.current
+    ) {
+      streamRef.current
+        .getTracks()
+        .forEach(
+          (track) =>
+            track.stop()
+        );
+
+      streamRef.current =
+        null;
+    }
+
+    if (
+      socketRef.current
+    ) {
+      socketRef.current
+        .disconnect();
+
+      socketRef.current =
+        null;
+    }
+
+    setConnected(false);
+
+    setCameraStarted(false);
+
+    setLandmarks([]);
+
+    const canvas =
+      canvasRef.current;
+
+    const ctx =
+      canvas?.getContext("2d");
+
+    if (ctx && canvas) {
+      ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+    }
+  };
+
+  // ============================================================
+  // INITIALIZE
+  // ============================================================
+
+  useEffect(() => {
+    startCamera();
+
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  // ============================================================
   // UI
-  // ==========================================
+  // ============================================================
 
   return (
+    <div className="w-full max-w-5xl mx-auto">
 
-    <div
-      style={{
-        width: "100%",
-        maxWidth: "700px",
-        margin: "0 auto",
-      }}
-    >
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
 
-      {/* =====================================
-          CAMERA
-      ====================================== */}
+      <div className="mb-6">
 
-      <div
-        style={{
-          position: "relative",
+        <div className="flex items-center justify-between">
 
-          width: "640px",
+          <div>
 
-          height: "480px",
+            <p className="text-sm font-semibold text-emerald-600">
+              TrainSafe AI
+            </p>
 
-          maxWidth: "100%",
+            <h1 className="mt-1 text-2xl font-bold text-slate-900">
+              AI Posture Analysis
+            </h1>
 
-          overflow: "hidden",
+            <p className="mt-1 text-sm text-slate-500">
+              Perform your exercise in front of the
+              camera and TrainSafe will analyze your
+              movement.
+            </p>
 
-          borderRadius: "12px",
+          </div>
 
-          background: "#111",
-
-        }}
-      >
-
-        <video
-          ref={videoRef}
-
-          autoPlay
-
-          playsInline
-
-          muted
-
-          style={{
-
-            width: "100%",
-
-            height: "100%",
-
-            objectFit: "cover",
-
-            transform:
-              "scaleX(-1)",
-
-          }}
-        />
-
-
-        {/* CAMERA STATUS */}
-
-        <div
-          style={{
-            position: "absolute",
-
-            top: "12px",
-
-            left: "12px",
-
-            padding:
-              "6px 10px",
-
-            borderRadius:
-              "6px",
-
-            background:
-              "rgba(0,0,0,0.65)",
-
-            color: "#fff",
-
-            fontSize: "14px",
-
-          }}
-        >
-
-          {cameraActive
-            ? "📷 Camera Active"
-            : "📷 Starting Camera..."}
-
-        </div>
-
-
-        {/* AI STATUS */}
-
-        <div
-          style={{
-            position: "absolute",
-
-            top: "12px",
-
-            right: "12px",
-
-            padding:
-              "6px 10px",
-
-            borderRadius:
-              "6px",
-
-            background:
-              "rgba(0,0,0,0.65)",
-
-            color: "#fff",
-
-            fontSize: "14px",
-
-          }}
-        >
-
-          {connected
-            ? "🟢 AI Connected"
-            : "🔴 AI Disconnected"}
+          <div
+            className={`rounded-full px-4 py-2 text-sm font-semibold ${
+              connected
+                ? "bg-emerald-50 text-emerald-600"
+                : "bg-red-50 text-red-500"
+            }`}
+          >
+            {connected
+              ? "● AI Connected"
+              : "● AI Disconnected"}
+          </div>
 
         </div>
 
       </div>
 
 
-      {/* =====================================
-          HIDDEN CANVAS
-      ====================================== */}
+      {/* ======================================================
+          CAMERA
+      ====================================================== */}
 
-      <canvas
-        ref={canvasRef}
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
 
-        width={640}
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-sm">
 
-        height={480}
+          <div
+            className="relative"
+            style={{
+              width: "100%",
+              aspectRatio: "4 / 3",
+            }}
+          >
 
-        style={{
-          display: "none",
-        }}
-      />
+            {/* VIDEO */}
 
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute inset-0 h-full w-full object-cover"
+            />
 
-      {/* =====================================
-          INFORMATION
-      ====================================== */}
+            {/* POSE OVERLAY */}
 
-      <div
-        style={{
-          marginTop: "15px",
+            <canvas
+              ref={canvasRef}
+              width={VIDEO_WIDTH}
+              height={VIDEO_HEIGHT}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
 
-          padding: "15px",
+            {/* CAMERA STATUS */}
 
-          borderRadius: "10px",
+            {!cameraStarted && (
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80">
 
-          background: "#f5f5f5",
+                <div className="text-center text-white">
 
-        }}
-      >
+                  <div className="text-lg font-semibold">
+                    Starting camera...
+                  </div>
 
-        {/* AI STATUS */}
+                  <div className="mt-1 text-sm text-slate-400">
+                    Please allow camera access.
+                  </div>
 
-        <div>
+                </div>
 
-          <strong>
-            AI Status:
-          </strong>{" "}
+              </div>
+            )}
 
-          {connected
-            ? "🟢 Connected"
-            : "🔴 Disconnected"}
-
-        </div>
-
-
-        {/* CAMERA STATUS */}
-
-        <div
-          style={{
-            marginTop: "8px",
-          }}
-        >
-
-          <strong>
-            Camera:
-          </strong>{" "}
-
-          {cameraActive
-            ? "🟢 Active"
-            : "🔴 Inactive"}
+          </div>
 
         </div>
 
 
-        {/* LANDMARK COUNT */}
+        {/* ==================================================
+            AI PANEL
+        ================================================== */}
 
-        <div
-          style={{
-            marginTop: "8px",
-          }}
-        >
+        <div className="space-y-4">
 
-          <strong>
-            Landmarks detected:
-          </strong>{" "}
+          {/* AI STATUS */}
 
-          {landmarks.length}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
-        </div>
+            <div className="flex items-center justify-between">
+
+              <h2 className="font-bold text-slate-900">
+                AI Detection
+              </h2>
+
+              <div
+                className={`h-3 w-3 rounded-full ${
+                  connected
+                    ? "bg-emerald-500"
+                    : "bg-red-500"
+                }`}
+              />
+
+            </div>
+
+            <div className="mt-5">
+
+              <p className="text-sm text-slate-500">
+                Landmarks detected
+              </p>
+
+              <p className="mt-1 text-4xl font-bold text-slate-900">
+                {landmarks.length}
+              </p>
+
+              <p className="mt-1 text-xs text-slate-400">
+                Expected: up to 33 pose points
+              </p>
+
+            </div>
+
+          </div>
 
 
-        {/* DETECTION MESSAGE */}
+          {/* RISK */}
 
-        <div
-          style={{
-            marginTop: "8px",
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
-            fontSize: "13px",
+            <p className="text-sm font-medium text-slate-500">
+              Injury Risk
+            </p>
 
-            color: "#666",
+            <div className="mt-2 flex items-end gap-2">
 
-          }}
-        >
+              <span className="text-4xl font-bold text-slate-900">
+                {risk !== null
+                  ? `${risk}%`
+                  : "--"}
+              </span>
 
-          {landmarks.length > 0
+              <span className="mb-1 text-sm font-semibold text-emerald-600">
+                {riskLevel}
+              </span>
 
-            ? "✅ Body detected"
+            </div>
 
-            : "Waiting for AI pose detection..."}
+            {risk !== null && (
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{
+                    width: `${Math.min(
+                      Math.max(
+                        risk,
+                        0
+                      ),
+                      100
+                    )}%`,
+                  }}
+                />
+
+              </div>
+            )}
+
+          </div>
+
+
+          {/* FEEDBACK */}
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+            <p className="text-sm font-medium text-slate-500">
+              AI Feedback
+            </p>
+
+            <p className="mt-3 text-sm leading-6 text-slate-700">
+              {feedback}
+            </p>
+
+          </div>
+
+
+          {/* LANDMARK DEBUG */}
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+            <p className="text-sm font-medium text-slate-500">
+              Detection Status
+            </p>
+
+            <div className="mt-3 space-y-2 text-sm">
+
+              <div className="flex justify-between">
+
+                <span className="text-slate-500">
+                  Camera
+                </span>
+
+                <span className="font-semibold">
+                  {cameraStarted
+                    ? "Ready"
+                    : "Off"}
+                </span>
+
+              </div>
+
+              <div className="flex justify-between">
+
+                <span className="text-slate-500">
+                  WebSocket
+                </span>
+
+                <span
+                  className={
+                    connected
+                      ? "font-semibold text-emerald-600"
+                      : "font-semibold text-red-500"
+                  }
+                >
+                  {connected
+                    ? "Connected"
+                    : "Disconnected"}
+                </span>
+
+              </div>
+
+              <div className="flex justify-between">
+
+                <span className="text-slate-500">
+                  Pose
+                </span>
+
+                <span
+                  className={
+                    landmarks.length > 0
+                      ? "font-semibold text-emerald-600"
+                      : "font-semibold text-amber-500"
+                  }
+                >
+                  {landmarks.length > 0
+                    ? "Detected"
+                    : "Searching..."}
+                </span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* ERROR */}
+
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+
+          {/* STOP */}
+
+          {cameraStarted && (
+            <button
+              type="button"
+              onClick={stopCamera}
+              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Stop AI Scan
+            </button>
+          )}
 
         </div>
 
       </div>
 
     </div>
-
   );
 };
-
 
 export default LivePoseCamera;

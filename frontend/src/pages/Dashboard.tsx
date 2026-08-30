@@ -8,11 +8,31 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+import { useNavigate } from "react-router-dom";
+
 import Sidebar from "../components/layout/Sidebar";
 import Topbar from "../components/layout/Topbar";
 
 const Dashboard = () => {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const navigate = useNavigate();
+
+  // ==========================================
+  // USER
+  // ==========================================
+
+  const user = JSON.parse(
+    localStorage.getItem("user") || "{}"
+  );
+
+  // ==========================================
+  // START AI POSTURE SCAN
+  // ==========================================
+
+  const startPostureScan = () => {
+    console.log("🚀 Start AI Posture Scan clicked");
+
+    navigate("/workout-ai");
+  };
 
   // ==========================================
   // TEMPORARY WORKOUT API TEST
@@ -52,14 +72,21 @@ const Dashboard = () => {
       console.log("Workout response:", data);
 
       if (!response.ok) {
-        alert(data.message || "Workout creation failed");
+        alert(
+          data.message ||
+            "Workout creation failed"
+        );
+
         return;
       }
 
       alert("Workout created successfully!");
     } catch (error) {
       console.error("Workout error:", error);
-      alert("Unable to connect to backend");
+
+      alert(
+        "Unable to connect to backend"
+      );
     }
   };
 
@@ -102,30 +129,29 @@ const Dashboard = () => {
     },
   ];
 
+  // ==========================================
+  // UI
+  // ==========================================
+
   return (
     <div className="min-h-screen bg-[#f8faf9] text-slate-900">
-
       <div className="flex min-h-screen">
 
-        {/* ======================================
-            SIDEBAR
-        ====================================== */}
+        {/* SIDEBAR */}
 
         <Sidebar />
 
         <div className="min-w-0 flex-1">
 
-          {/* ======================================
-              TOPBAR
-          ====================================== */}
+          {/* TOPBAR */}
 
           <Topbar />
 
           <main className="px-5 py-6 sm:px-6 lg:px-8">
 
-            {/* ======================================
+            {/* ==================================
                 WELCOME
-            ====================================== */}
+            ================================== */}
 
             <section>
               <p className="text-sm font-semibold text-emerald-600">
@@ -133,19 +159,20 @@ const Dashboard = () => {
               </p>
 
               <h1 className="mt-1.5 text-3xl font-bold tracking-tight text-slate-900">
-                Good morning,{" "}
+                Good morning{" "}
                 {user.name || "Athlete"} 👋
               </h1>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                Here's a quick overview of your training,
-                recovery and injury prevention status.
+                Here's a quick overview of your
+                training, recovery and injury
+                prevention status.
               </p>
             </section>
 
-            {/* ======================================
+            {/* ==================================
                 STATS
-            ====================================== */}
+            ================================== */}
 
             <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
@@ -186,15 +213,13 @@ const Dashboard = () => {
 
             </section>
 
-            {/* ======================================
+            {/* ==================================
                 MAIN GRID
-            ====================================== */}
+            ================================== */}
 
             <section className="mt-6 grid gap-5 xl:grid-cols-3">
 
-              {/* ==================================
-                  PERFORMANCE
-              ================================== */}
+              {/* PERFORMANCE */}
 
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
 
@@ -220,7 +245,7 @@ const Dashboard = () => {
 
                 </div>
 
-                {/* Chart */}
+                {/* CHART */}
 
                 <div className="mt-8 flex h-56 items-end gap-3 border-b border-slate-100 pb-2">
 
@@ -269,7 +294,7 @@ const Dashboard = () => {
               </div>
 
               {/* ==================================
-                  INJURY RISK
+                  INJURY PREVENTION
               ================================== */}
 
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -308,11 +333,23 @@ const Dashboard = () => {
                   <div className="h-full w-[23%] rounded-full bg-emerald-500" />
                 </div>
 
+                {/* ==================================
+                    START AI POSTURE SCAN
+                ================================== */}
+
                 <button
                   type="button"
-                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  onClick={() => {
+                    console.log(
+                      "🚀 POSTURE BUTTON CLICKED"
+                    );
+
+                    navigate("/workout-ai");
+                  }}
+                  className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98]"
                 >
                   Start AI Posture Scan
+
                   <ArrowUpRight size={17} />
                 </button>
 
@@ -320,9 +357,9 @@ const Dashboard = () => {
 
             </section>
 
-            {/* ======================================
+            {/* ==================================
                 QUICK ACCESS
-            ====================================== */}
+            ================================== */}
 
             <section className="mt-6">
 
@@ -342,7 +379,7 @@ const Dashboard = () => {
 
               <div className="grid gap-4 md:grid-cols-3">
 
-                {/* Recovery */}
+                {/* RECOVERY */}
 
                 <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
 
@@ -377,7 +414,7 @@ const Dashboard = () => {
 
                 </div>
 
-                {/* Nutrition */}
+                {/* NUTRITION */}
 
                 <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
 
@@ -411,7 +448,7 @@ const Dashboard = () => {
 
                 </div>
 
-                {/* Training */}
+                {/* TRAINING */}
 
                 <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
 
@@ -450,9 +487,9 @@ const Dashboard = () => {
 
             </section>
 
-            {/* ======================================
+            {/* ==================================
                 AI INSIGHT
-            ====================================== */}
+            ================================== */}
 
             <section className="mt-6">
 
@@ -469,6 +506,7 @@ const Dashboard = () => {
                     </div>
 
                     <div>
+
                       <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
                         AI Training Insight
                       </p>
@@ -478,18 +516,22 @@ const Dashboard = () => {
                       </h3>
 
                       <p className="mt-1 max-w-xl text-sm text-slate-400">
-                        Keep your current recovery routine and avoid
-                        increasing training intensity too quickly.
+                        Keep your current recovery
+                        routine and avoid increasing
+                        training intensity too quickly.
                       </p>
+
                     </div>
 
                   </div>
 
                   <button
                     type="button"
-                    className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+                    onClick={startPostureScan}
+                    className="flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 active:scale-[0.98]"
                   >
-                    View AI Insights
+                    Start AI Scan
+
                     <ArrowUpRight size={16} />
                   </button>
 
@@ -504,7 +546,6 @@ const Dashboard = () => {
         </div>
 
       </div>
-
     </div>
   );
 };

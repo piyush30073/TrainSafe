@@ -1,104 +1,169 @@
 
+export interface PoseAIResponse {
+  success?: boolean;
+  message?: string;
+  received?: number;
+
+  landmarks?: {
+    x: number;
+    y: number;
+    z?: number;
+    visibility?: number;
+  }[];
+
+  risk?: number;
+  risk_level?: string;
+
+  feedback?: string;
+  recommendation?: string;
+}
+
 export class PoseSocket {
   private socket: WebSocket | null = null;
 
+  private connected = false;
+
   connect(
-    onMessage: (data: any) => void,
-    onOpen?: () => void,
-    onError?: (error: Event) => void
-  ): void {
-    console.log("🔵 Connecting to TrainSafe AI...");
+    onMessage: (data: PoseAIResponse) => void,
+    onError?: (error: Event) => void,
+    onDisconnect?: () => void
+  ) {
+    // Prevent duplicate connections
+    if (
+      this.socket &&
+      this.socket.readyState === WebSocket.OPEN
+    ) {
+      console.log(
+        "⚠️ WebSocket already connected"
+      );
+
+      return;
+    }
+
+    console.log(
+      "🔌 Connecting to TrainSafe AI..."
+    );
 
     this.socket = new WebSocket(
       "ws://127.0.0.1:8000/ws/pose"
     );
 
-    // ==========================================
-    // CONNECTION OPEN
-    // ==========================================
+    // =========================================================
+    // CONNECTED
+    // =========================================================
 
     this.socket.onopen = () => {
-      console.log("✅ Connected to TrainSafe AI");
+      this.connected = true;
 
-      if (onOpen) {
-        onOpen();
-      }
+      console.log(
+        "✅ Connected to TrainSafe AI"
+      );
     };
 
-    // ==========================================
-    // MESSAGE FROM AI
-    // ==========================================
+    // =========================================================
+    // MESSAGE FROM PYTHON AI
+    // =========================================================
 
-    this.socket.onmessage = (event: MessageEvent) => {
+    this.socket.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const data: PoseAIResponse =
+          JSON.parse(event.data);
 
-        console.log("🤖 AI response:", data);
+        console.log(
+          "🤖 AI response:",
+          data
+        );
 
         onMessage(data);
       } catch (error) {
         console.error(
-          "❌ Failed to parse AI response:",
+          "❌ Invalid AI response:",
           error
         );
       }
     };
 
-    // ==========================================
-    // WEBSOCKET ERROR
-    // ==========================================
+    // =========================================================
+    // ERROR
+    // =========================================================
 
-    this.socket.onerror = (error: Event) => {
+    this.socket.onerror = (error) => {
       console.error(
         "❌ AI WebSocket error:",
         error
       );
+
+      this.connected = false;
 
       if (onError) {
         onError(error);
       }
     };
 
-    // ==========================================
-    // CONNECTION CLOSED
-    // ==========================================
+    // =========================================================
+    // DISCONNECTED
+    // =========================================================
 
-    this.socket.onclose = (event: CloseEvent) => {
+    this.socket.onclose = () => {
+      this.connected = false;
+
       console.log(
-        "❌ AI WebSocket disconnected",
-        event.code,
-        event.reason
+        "🔌 AI WebSocket disconnected"
       );
+
+      if (onDisconnect) {
+        onDisconnect();
+      }
     };
   }
 
-  // ==========================================
-  // SEND CAMERA FRAME
-  // ==========================================
+  // =========================================================
+  // SEND FRAME
+  // =========================================================
 
-  sendFrame(frame: string): void {
-    if (!this.socket) {
-      console.warn(
-        "⚠️ WebSocket does not exist"
-      );
-      return;
-    }
-
+  sendFrame(image: string) {
     if (
-      this.socket.readyState !==
-      WebSocket.OPEN
+      !this.socket ||
+      this.socket.readyState !== WebSocket.OPEN
     ) {
+      console.warn(
+        "⚠️ WebSocket is not connected"
+      );
+
       return;
     }
 
-    this.socket.send(frame);
+    try {
+      this.socket.send(
+        JSON.stringify({
+          image,
+        })
+      );
+    } catch (error) {
+      console.error(
+        "❌ Failed to send frame:",
+        error
+      );
+    }
   }
 
-  // ==========================================
-  // DISCONNECT
-  // ==========================================
+  // =========================================================
+  // CONNECTION STATUS
+  // =========================================================
 
-  disconnect(): void {
+  isConnected() {
+    return (
+      this.socket !== null &&
+      this.socket.readyState ===
+        WebSocket.OPEN
+    );
+  }
+
+  // =========================================================
+  // DISCONNECT
+  // =========================================================
+
+  disconnect() {
     if (this.socket) {
       console.log(
         "🔌 Closing AI WebSocket..."
@@ -108,17 +173,7 @@ export class PoseSocket {
 
       this.socket = null;
     }
-  }
 
-  // ==========================================
-  // CHECK CONNECTION
-  // ==========================================
-
-  isConnected(): boolean {
-    return (
-      this.socket !== null &&
-      this.socket.readyState ===
-        WebSocket.OPEN
-    );
+    this.connected = false;
   }
 }

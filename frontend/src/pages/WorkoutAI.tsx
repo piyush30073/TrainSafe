@@ -2,25 +2,25 @@ import LivePoseCamera from "../components/ai/LivePoseCamera";
 
 const WorkoutAI = () => {
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-6xl">
+    <div className="min-h-screen bg-slate-50">
 
-        <h1 className="mb-2 text-3xl font-bold text-gray-900">
-          TrainSafe AI Form Analysis
+      <div className="p-6">
+
+        <h1 className="text-3xl font-bold text-slate-900">
+          AI Workout Analysis
         </h1>
 
-        <p className="mb-6 text-gray-600">
+        <p className="mt-2 text-slate-500">
           Turn on your camera and perform your exercise.
-          TrainSafe AI will analyze your movement in real time.
+          TrainSafe AI will analyze your posture in real time.
         </p>
 
-        <div className="rounded-2xl bg-white p-6 shadow">
-
+        <div className="mt-6">
           <LivePoseCamera />
-
         </div>
 
       </div>
+
     </div>
   );
 };
