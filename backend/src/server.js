@@ -7,27 +7,17 @@ const PORT = Number(process.env.PORT) || 10000;
 
 const startServer = async () => {
   try {
-    /*
-    |--------------------------------------------------------------------------
-    | Database
-    |--------------------------------------------------------------------------
-    */
-
+    // Connect to MongoDB
     await connectDB();
 
-    /*
-    |--------------------------------------------------------------------------
-    | Start Express Server
-    |--------------------------------------------------------------------------
-    */
-
+    // Start Express server
     app.listen(PORT, "0.0.0.0", () => {
       console.log(
         `TrainSafe backend running on 0.0.0.0:${PORT}`
       );
     });
   } catch (error) {
-    console.error("Server startup failed:", error);
+    console.error("Server startup failed:", error.message);
     process.exit(1);
   }
 };
