@@ -21,8 +21,6 @@ export interface PoseAIResponse {
 export class PoseSocket {
   private socket: WebSocket | null = null;
 
-  private connected = false;
-
   connect(
     onMessage: (data: PoseAIResponse) => void,
     onError?: (error: Event) => void,
@@ -53,8 +51,6 @@ export class PoseSocket {
     // =========================================================
 
     this.socket.onopen = () => {
-      this.connected = true;
-
       console.log(
         "✅ Connected to TrainSafe AI"
       );
@@ -93,8 +89,6 @@ export class PoseSocket {
         error
       );
 
-      this.connected = false;
-
       if (onError) {
         onError(error);
       }
@@ -105,8 +99,6 @@ export class PoseSocket {
     // =========================================================
 
     this.socket.onclose = () => {
-      this.connected = false;
-
       console.log(
         "🔌 AI WebSocket disconnected"
       );
@@ -173,7 +165,5 @@ export class PoseSocket {
 
       this.socket = null;
     }
-
-    this.connected = false;
   }
 }

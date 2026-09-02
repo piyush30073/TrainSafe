@@ -23,21 +23,43 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
+console.log("Allowed CORS origins:", allowedOrigins);
+
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (
-        !origin ||
-        allowedOrigins.includes(origin)
-      ) {
-        callback(null, true);
-      } else {
-        callback(
-          new Error("Not allowed by CORS")
-        );
+    origin: function (origin, callback) {
+      // Allow requests without an origin
+      // (Postman, server-to-server requests, etc.)
+      if (!origin) {
+        return callback(null, true);
       }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("CORS blocked origin:", origin);
+
+      return callback(new Error("Not allowed by CORS"));
     },
+
     credentials: true,
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
+
+    optionsSuccessStatus: 204,
   })
 );
 
@@ -46,8 +68,12 @@ app.use(
 // ==========================================
 
 app.use(helmet());
+
 app.use(morgan("dev"));
+
 app.use(express.json());
+
+app.use(express.urlencoded({ extended: true }));
 
 // ==========================================
 // HEALTH CHECK
@@ -116,7 +142,7 @@ app.use(
 );
 
 // ==========================================
-// 404
+// 404 HANDLER
 // ==========================================
 
 app.use((req, res) => {
@@ -133,27 +159,25 @@ app.use((req, res) => {
 // ==========================================
 
 app.use((error, req, res, next) => {
-  console.error(
-    "SERVER ERROR:",
-    error
-  );
+  console.error("SERVER ERROR:", error);
 
-  if (
-    error.message ===
-    "Not allowed by CORS"
-  ) {
+  // CORS error
+  if (error.message === "Not allowed by CORS") {
     return res.status(403).json({
       success: false,
-      message:
-        "CORS origin not allowed",
+      message: "CORS origin not allowed",
+      origin: req.headers.origin || null,
     });
   }
 
   return res.status(500).json({
     success: false,
-    message:
-      "Internal server error",
+    message: "Internal server error",
   });
 });
+
+// ==========================================
+// EXPORT
+// ==========================================
 
 export default app;
