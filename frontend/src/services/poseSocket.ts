@@ -3,18 +3,31 @@ export interface PoseAIResponse {
   message?: string;
   received?: number;
 
+  detected?: boolean;
+
   landmarks?: {
+    id?: number;
     x: number;
     y: number;
     z?: number;
     visibility?: number;
   }[];
 
+  angles?: {
+    left_elbow?: number;
+    right_elbow?: number;
+    left_knee?: number;
+    right_knee?: number;
+    [key: string]: number | undefined;
+  };
+
   risk?: number;
   risk_level?: string;
 
   feedback?: string;
   recommendation?: string;
+
+  status?: string;
 }
 
 export class PoseSocket {
@@ -23,23 +36,33 @@ export class PoseSocket {
   connect(
     onMessage: (data: PoseAIResponse) => void,
     onError?: (error: Event) => void,
-    onDisconnect?: () => void
+    onDisconnect?: () => void,
+    onConnect?: () => void
   ) {
-    // Prevent duplicate connections
+    // =========================================================
+    // PREVENT DUPLICATE CONNECTIONS
+    // =========================================================
+
     if (
       this.socket &&
-      (this.socket.readyState === WebSocket.OPEN ||
-        this.socket.readyState === WebSocket.CONNECTING)
+      (
+        this.socket.readyState === WebSocket.OPEN ||
+        this.socket.readyState === WebSocket.CONNECTING
+      )
     ) {
-      console.log("⚠️ WebSocket already connected/connecting");
+      console.log(
+        "⚠️ WebSocket already connected/connecting"
+      );
+
       return;
     }
 
     // =========================================================
-    // GET AI SERVICE URL FROM ENVIRONMENT
+    // GET AI SERVICE URL
     // =========================================================
 
-    const aiUrl = import.meta.env.VITE_AI_API_URL;
+    const aiUrl =
+      import.meta.env.VITE_AI_API_URL;
 
     if (!aiUrl) {
       console.error(
@@ -49,16 +72,22 @@ export class PoseSocket {
       return;
     }
 
-    // Convert:
+    // =========================================================
+    // HTTP → WS
+    //
+    // Local:
     // http://localhost:8000
-    //        ↓
+    //       ↓
     // ws://localhost:8000
     //
+    // Production:
     // https://trainsafe-1.onrender.com
-    //        ↓
+    //       ↓
     // wss://trainsafe-1.onrender.com
+    // =========================================================
 
-    const wsUrl = `${aiUrl.replace(/^http/, "ws")}/ws/pose`;
+    const wsUrl =
+      `${aiUrl.replace(/^http/, "ws")}/ws/pose`;
 
     console.log(
       "🔌 Connecting to TrainSafe AI:",
@@ -66,11 +95,12 @@ export class PoseSocket {
     );
 
     // =========================================================
-    // CREATE WEBSOCKET
+    // CREATE SOCKET
     // =========================================================
 
     try {
-      this.socket = new WebSocket(wsUrl);
+      this.socket =
+        new WebSocket(wsUrl);
     } catch (error) {
       console.error(
         "❌ Failed to create WebSocket:",
@@ -93,10 +123,14 @@ export class PoseSocket {
         "🤖 AI WebSocket:",
         wsUrl
       );
+
+      if (onConnect) {
+        onConnect();
+      }
     };
 
     // =========================================================
-    // MESSAGE FROM PYTHON AI
+    // MESSAGE
     // =========================================================
 
     this.socket.onmessage = (event) => {
@@ -110,6 +144,7 @@ export class PoseSocket {
         );
 
         onMessage(data);
+
       } catch (error) {
         console.error(
           "❌ Invalid AI response:",
@@ -117,7 +152,7 @@ export class PoseSocket {
         );
 
         console.error(
-          "Received data:",
+          "Received:",
           event.data
         );
       }
@@ -153,12 +188,12 @@ export class PoseSocket {
       );
 
       console.log(
-        "WebSocket close code:",
+        "Close code:",
         event.code
       );
 
       console.log(
-        "WebSocket close reason:",
+        "Close reason:",
         event.reason
       );
 
@@ -185,11 +220,13 @@ export class PoseSocket {
     }
 
     try {
-      this.socket.send(
-        JSON.stringify({
-          image,
-        })
-      );
+      // IMPORTANT:
+      // FastAPI expects the base64/data URL directly.
+      //
+      // DO NOT wrap it in JSON.
+
+      this.socket.send(image);
+
     } catch (error) {
       console.error(
         "❌ Failed to send frame:",
@@ -205,7 +242,8 @@ export class PoseSocket {
   isConnected() {
     return (
       this.socket !== null &&
-      this.socket.readyState === WebSocket.OPEN
+      this.socket.readyState ===
+        WebSocket.OPEN
     );
   }
 

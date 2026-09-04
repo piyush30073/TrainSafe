@@ -1,4 +1,3 @@
-
 import {
   useCallback,
   useEffect,
@@ -6,62 +5,74 @@ import {
   useState,
 } from "react";
 
-import { PoseSocket } from "../../services/poseSocket";
+import {
+  PoseSocket,
+  type PoseAIResponse,
+} from "../../services/poseSocket";
 
 interface Landmark {
+  id?: number;
   x: number;
   y: number;
   z?: number;
   visibility?: number;
 }
 
-interface AIResponse {
-  success?: boolean;
-  message?: string;
-  received?: number;
-
-  landmarks?: Landmark[];
-
-  risk?: number;
-  risk_level?: string;
-
-  feedback?: string;
-  recommendation?: string;
-}
-
 const VIDEO_WIDTH = 640;
 const VIDEO_HEIGHT = 480;
 
-const SEND_INTERVAL = 100; // 10 FPS
+// 10 FPS
+const SEND_INTERVAL = 100;
 
 const LivePoseCamera = () => {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  // ============================================================
+  // REFS
+  // ============================================================
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const videoRef =
+    useRef<HTMLVideoElement | null>(null);
 
-  const socketRef = useRef<PoseSocket | null>(null);
+  const canvasRef =
+    useRef<HTMLCanvasElement | null>(null);
 
-  const streamRef = useRef<MediaStream | null>(null);
+  const socketRef =
+    useRef<PoseSocket | null>(null);
 
-  const frameTimerRef = useRef<number | null>(null);
+  const streamRef =
+    useRef<MediaStream | null>(null);
 
-  const isRunningRef = useRef(false);
+  const frameTimerRef =
+    useRef<number | null>(null);
 
-  const [connected, setConnected] = useState(false);
+  const isRunningRef =
+    useRef(false);
 
-  const [cameraStarted, setCameraStarted] = useState(false);
+  // ============================================================
+  // STATE
+  // ============================================================
 
-  const [landmarks, setLandmarks] = useState<Landmark[]>([]);
+  const [connected, setConnected] =
+    useState(false);
 
-  const [risk, setRisk] = useState<number | null>(null);
+  const [cameraStarted, setCameraStarted] =
+    useState(false);
 
-  const [riskLevel, setRiskLevel] = useState("Waiting");
+  const [landmarks, setLandmarks] =
+    useState<Landmark[]>([]);
 
-  const [feedback, setFeedback] = useState(
-    "Position yourself in front of the camera."
-  );
+  const [risk, setRisk] =
+    useState<number | null>(null);
 
-  const [error, setError] = useState("");
+  const [riskLevel, setRiskLevel] =
+    useState("Waiting");
+
+  const [feedback, setFeedback] =
+    useState(
+      "Position yourself in front of the camera."
+    );
+
+  const [error, setError] =
+    useState("");
 
   // ============================================================
   // DRAW POSE
@@ -69,11 +80,13 @@ const LivePoseCamera = () => {
 
   const drawPose = useCallback(
     (points: Landmark[]) => {
-      const canvas = canvasRef.current;
+      const canvas =
+        canvasRef.current;
 
       if (!canvas) return;
 
-      const ctx = canvas.getContext("2d");
+      const ctx =
+        canvas.getContext("2d");
 
       if (!ctx) return;
 
@@ -84,18 +97,18 @@ const LivePoseCamera = () => {
         canvas.height
       );
 
-      if (!points || points.length === 0) {
+      if (
+        !points ||
+        points.length === 0
+      ) {
         return;
       }
 
-      /*
-       * MediaPipe pose connections.
-       *
-       * These indexes correspond to the standard
-       * 33-point MediaPipe Pose landmark model.
-       */
-
-      const connections: [number, number][] = [
+      // MediaPipe 33-point connections
+      const connections: [
+        number,
+        number
+      ][] = [
         [0, 1],
         [1, 2],
         [2, 3],
@@ -135,92 +148,106 @@ const LivePoseCamera = () => {
         [28, 32],
       ];
 
-      // --------------------------------------------------------
-      // Draw skeleton
-      // --------------------------------------------------------
+      // ========================================================
+      // DRAW SKELETON
+      // ========================================================
 
       ctx.lineWidth = 4;
-
       ctx.lineCap = "round";
-
       ctx.strokeStyle = "#22c55e";
 
-      connections.forEach(([start, end]) => {
-        const a = points[start];
+      connections.forEach(
+        ([start, end]) => {
+          const a = points[start];
+          const b = points[end];
 
-        const b = points[end];
+          if (!a || !b) {
+            return;
+          }
 
-        if (!a || !b) return;
+          if (
+            a.visibility !== undefined &&
+            a.visibility < 0.4
+          ) {
+            return;
+          }
 
-        if (
-          a.visibility !== undefined &&
-          a.visibility < 0.4
-        ) {
-          return;
+          if (
+            b.visibility !== undefined &&
+            b.visibility < 0.4
+          ) {
+            return;
+          }
+
+          const ax =
+            a.x * canvas.width;
+
+          const ay =
+            a.y * canvas.height;
+
+          const bx =
+            b.x * canvas.width;
+
+          const by =
+            b.y * canvas.height;
+
+          ctx.beginPath();
+
+          ctx.moveTo(
+            ax,
+            ay
+          );
+
+          ctx.lineTo(
+            bx,
+            by
+          );
+
+          ctx.stroke();
         }
+      );
 
-        if (
-          b.visibility !== undefined &&
-          b.visibility < 0.4
-        ) {
-          return;
+      // ========================================================
+      // DRAW JOINTS
+      // ========================================================
+
+      points.forEach(
+        (point) => {
+          if (!point) return;
+
+          if (
+            point.visibility !== undefined &&
+            point.visibility < 0.4
+          ) {
+            return;
+          }
+
+          const x =
+            point.x * canvas.width;
+
+          const y =
+            point.y * canvas.height;
+
+          ctx.beginPath();
+
+          ctx.arc(
+            x,
+            y,
+            5,
+            0,
+            Math.PI * 2
+          );
+
+          ctx.fillStyle = "#ffffff";
+          ctx.fill();
+
+          ctx.lineWidth = 2;
+          ctx.strokeStyle =
+            "#22c55e";
+
+          ctx.stroke();
         }
-
-        const ax = a.x * canvas.width;
-
-        const ay = a.y * canvas.height;
-
-        const bx = b.x * canvas.width;
-
-        const by = b.y * canvas.height;
-
-        ctx.beginPath();
-
-        ctx.moveTo(ax, ay);
-
-        ctx.lineTo(bx, by);
-
-        ctx.stroke();
-      });
-
-      // --------------------------------------------------------
-      // Draw joints
-      // --------------------------------------------------------
-
-      points.forEach((point) => {
-        if (!point) return;
-
-        if (
-          point.visibility !== undefined &&
-          point.visibility < 0.4
-        ) {
-          return;
-        }
-
-        const x = point.x * canvas.width;
-
-        const y = point.y * canvas.height;
-
-        ctx.beginPath();
-
-        ctx.arc(
-          x,
-          y,
-          5,
-          0,
-          Math.PI * 2
-        );
-
-        ctx.fillStyle = "#ffffff";
-
-        ctx.fill();
-
-        ctx.lineWidth = 2;
-
-        ctx.strokeStyle = "#22c55e";
-
-        ctx.stroke();
-      });
+      );
     },
     []
   );
@@ -229,132 +256,95 @@ const LivePoseCamera = () => {
   // HANDLE AI RESPONSE
   // ============================================================
 
-  const handleAIResponse = useCallback(
-    (data: AIResponse) => {
-      console.log(
-        "🤖 TrainSafe AI:",
-        data
-      );
-
-      /*
-       * The AI service must eventually return:
-       *
-       * {
-       *   success: true,
-       *   landmarks: [...]
-       * }
-       */
-
-      if (
-        Array.isArray(data.landmarks)
-      ) {
-        setLandmarks(
-          data.landmarks
+  const handleAIResponse =
+    useCallback(
+      (data: PoseAIResponse) => {
+        console.log(
+          "🤖 TrainSafe AI:",
+          data
         );
 
-        drawPose(
-          data.landmarks
-        );
-      }
+        // ======================================================
+        // LANDMARKS
+        // ======================================================
 
-      // --------------------------------------------------------
-      // Risk
-      // --------------------------------------------------------
+        if (
+          Array.isArray(
+            data.landmarks
+          )
+        ) {
+          setLandmarks(
+            data.landmarks
+          );
 
-      if (
-        typeof data.risk ===
-        "number"
-      ) {
-        setRisk(data.risk);
-      }
+          drawPose(
+            data.landmarks
+          );
+        }
 
-      // --------------------------------------------------------
-      // Risk level
-      // --------------------------------------------------------
+        // ======================================================
+        // RISK
+        // ======================================================
 
-      if (
-        typeof data.risk_level ===
-        "string"
-      ) {
-        setRiskLevel(
-          data.risk_level
-        );
-      }
+        if (
+          typeof data.risk ===
+          "number"
+        ) {
+          setRisk(data.risk);
+        }
 
-      // --------------------------------------------------------
-      // Feedback
-      // --------------------------------------------------------
+        // ======================================================
+        // RISK LEVEL
+        // ======================================================
 
-      if (
-        typeof data.feedback ===
-        "string"
-      ) {
-        setFeedback(
-          data.feedback
-        );
-      }
+        if (
+          typeof data.risk_level ===
+          "string"
+        ) {
+          setRiskLevel(
+            data.risk_level
+          );
+        }
 
-      if (
-        typeof data.recommendation ===
-        "string"
-      ) {
-        setFeedback(
-          data.recommendation
-        );
-      }
-    },
-    [drawPose]
-  );
+        // ======================================================
+        // FEEDBACK
+        // ======================================================
+
+        if (
+          typeof data.feedback ===
+          "string"
+        ) {
+          setFeedback(
+            data.feedback
+          );
+        } else if (
+          typeof data.recommendation ===
+          "string"
+        ) {
+          setFeedback(
+            data.recommendation
+          );
+        } else if (
+          typeof data.message ===
+          "string"
+        ) {
+          setFeedback(
+            data.message
+          );
+        }
+      },
+      [drawPose]
+    );
 
   // ============================================================
-  // START CAMERA
+  // CONNECT AI
   // ============================================================
 
-  const startCamera = async () => {
-    try {
-      setError("");
-
-      const stream =
-        await navigator.mediaDevices.getUserMedia(
-          {
-            video: {
-              width: VIDEO_WIDTH,
-              height: VIDEO_HEIGHT,
-              facingMode: "user",
-            },
-
-            audio: false,
-          }
-        );
-
-      streamRef.current =
-        stream;
-
-      const video =
-        videoRef.current;
-
-      if (!video) {
-        throw new Error(
-          "Video element not available."
-        );
-      }
-
-      video.srcObject =
-        stream;
-
-      await video.play();
-
-      setCameraStarted(
-        true
-      );
-
+  const connectAI =
+    useCallback(() => {
       console.log(
-        "📷 Camera started"
+        "🔌 Connecting to TrainSafe AI..."
       );
-
-      // --------------------------------------------------------
-      // Create WebSocket
-      // --------------------------------------------------------
 
       const socket =
         new PoseSocket();
@@ -363,221 +353,378 @@ const LivePoseCamera = () => {
         socket;
 
       socket.connect(
+        // ======================================================
+        // MESSAGE
+        // ======================================================
+
         handleAIResponse,
+
+        // ======================================================
+        // ERROR
+        // ======================================================
+
         (socketError) => {
           console.error(
             "❌ AI WebSocket error:",
             socketError
           );
 
-          setConnected(
-            false
-          );
+          setConnected(false);
 
           setError(
             "Unable to connect to TrainSafe AI."
           );
         },
+
+        // ======================================================
+        // DISCONNECT
+        // ======================================================
+
         () => {
           console.log(
             "🔌 AI WebSocket disconnected"
           );
 
-          setConnected(
-            false
-          );
-        }
-      );
+          setConnected(false);
+        },
 
-      /*
-       * Give WebSocket a moment to establish
-       * before starting the frame loop.
-       */
+        // ======================================================
+        // CONNECTED
+        // ======================================================
 
-      setTimeout(() => {
-        if (
-          socket.isConnected?.()
-        ) {
-          setConnected(
-            true
+        () => {
+          console.log(
+            "✅ AI WebSocket connected"
           );
+
+          setConnected(true);
+
+          setError("");
+
+          // IMPORTANT:
+          // Start sending frames ONLY
+          // after the socket actually opens.
 
           startFrameLoop();
         }
-      }, 300);
-    } catch (err) {
-      console.error(
-        "Camera error:",
-        err
       );
-
-      setError(
-        "Camera permission was denied or camera is unavailable."
-      );
-    }
-  };
+    }, [
+      handleAIResponse,
+    ]);
 
   // ============================================================
   // FRAME LOOP
   // ============================================================
 
-  const startFrameLoop = () => {
-    if (
-      isRunningRef.current
-    ) {
-      return;
-    }
-
-    isRunningRef.current =
-      true;
-
-    const canvas =
-      canvasRef.current;
-
-    const video =
-      videoRef.current;
-
-    if (!canvas || !video) {
-      console.error(
-        "Canvas or video not found."
-      );
-
-      return;
-    }
-
-    canvas.width =
-      VIDEO_WIDTH;
-
-    canvas.height =
-      VIDEO_HEIGHT;
-
-    const ctx =
-      canvas.getContext("2d");
-
-    if (!ctx) return;
-
-    const sendFrame = () => {
+  const startFrameLoop =
+    useCallback(() => {
       if (
-        !isRunningRef.current
+        isRunningRef.current
       ) {
         return;
       }
 
-      if (
-        video.readyState >=
-        HTMLMediaElement.HAVE_CURRENT_DATA
-      ) {
-        /*
-         * Draw current video frame
-         * to hidden canvas.
-         */
+      const canvas =
+        canvasRef.current;
 
-        ctx.drawImage(
-          video,
-          0,
-          0,
-          VIDEO_WIDTH,
-          VIDEO_HEIGHT
+      const video =
+        videoRef.current;
+
+      if (
+        !canvas ||
+        !video
+      ) {
+        console.error(
+          "❌ Canvas or video not found."
         );
 
-        /*
-         * Convert image to JPEG.
-         */
-
-        const image =
-          canvas.toDataURL(
-            "image/jpeg",
-            0.6
-          );
-
-        /*
-         * Send frame to Python
-         * FastAPI WebSocket.
-         */
-
-        if (
-          socketRef.current
-        ) {
-          socketRef.current.sendFrame(
-            image
-          );
-        }
+        return;
       }
 
-      frameTimerRef.current =
-        window.setTimeout(
-          sendFrame,
-          SEND_INTERVAL
-        );
-    };
+      const ctx =
+        canvas.getContext("2d");
 
-    sendFrame();
-  };
+      if (!ctx) {
+        console.error(
+          "❌ Canvas context unavailable."
+        );
+
+        return;
+      }
+
+      canvas.width =
+        VIDEO_WIDTH;
+
+      canvas.height =
+        VIDEO_HEIGHT;
+
+      isRunningRef.current =
+        true;
+
+      console.log(
+        "🎥 AI frame stream started"
+      );
+
+      const sendFrame =
+        () => {
+          if (
+            !isRunningRef.current
+          ) {
+            return;
+          }
+
+          // ====================================================
+          // MAKE SURE SOCKET IS CONNECTED
+          // ====================================================
+
+          if (
+            !socketRef.current ||
+            !socketRef.current.isConnected()
+          ) {
+            console.warn(
+              "⚠️ AI socket not connected yet"
+            );
+
+            frameTimerRef.current =
+              window.setTimeout(
+                sendFrame,
+                SEND_INTERVAL
+              );
+
+            return;
+          }
+
+          // ====================================================
+          // MAKE SURE VIDEO IS READY
+          // ====================================================
+
+          if (
+            video.readyState >=
+            HTMLMediaElement.HAVE_CURRENT_DATA
+          ) {
+            ctx.drawImage(
+              video,
+              0,
+              0,
+              VIDEO_WIDTH,
+              VIDEO_HEIGHT
+            );
+
+            // ==================================================
+            // JPEG COMPRESSION
+            // ==================================================
+
+            const image =
+              canvas.toDataURL(
+                "image/jpeg",
+                0.6
+              );
+
+            // ==================================================
+            // SEND TO AI
+            // ==================================================
+
+            socketRef.current.sendFrame(
+              image
+            );
+          }
+
+          frameTimerRef.current =
+            window.setTimeout(
+              sendFrame,
+              SEND_INTERVAL
+            );
+        };
+
+      sendFrame();
+    }, []);
+
+  // ============================================================
+  // START CAMERA
+  // ============================================================
+
+  const startCamera =
+    useCallback(
+      async () => {
+        try {
+          setError("");
+
+          console.log(
+            "📷 Starting camera..."
+          );
+
+          if (
+            !navigator.mediaDevices?.getUserMedia
+          ) {
+            throw new Error(
+              "Camera access is not supported by this browser."
+            );
+          }
+
+          const stream =
+            await navigator.mediaDevices.getUserMedia(
+              {
+                video: {
+                  width: {
+                    ideal: VIDEO_WIDTH,
+                  },
+
+                  height: {
+                    ideal: VIDEO_HEIGHT,
+                  },
+
+                  frameRate: {
+                    ideal: 15,
+                    max: 20,
+                  },
+
+                  facingMode:
+                    "user",
+                },
+
+                audio: false,
+              }
+            );
+
+          streamRef.current =
+            stream;
+
+          const video =
+            videoRef.current;
+
+          if (!video) {
+            throw new Error(
+              "Video element not available."
+            );
+          }
+
+          video.srcObject =
+            stream;
+
+          video.muted =
+            true;
+
+          video.playsInline =
+            true;
+
+          await video.play();
+
+          setCameraStarted(
+            true
+          );
+
+          console.log(
+            "📷 Camera started"
+          );
+
+          // ======================================================
+          // CONNECT AFTER CAMERA READY
+          // ======================================================
+
+          connectAI();
+
+        } catch (err) {
+          console.error(
+            "❌ Camera error:",
+            err
+          );
+
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Camera permission was denied or camera is unavailable."
+          );
+        }
+      },
+      [connectAI]
+    );
 
   // ============================================================
   // STOP CAMERA
   // ============================================================
 
-  const stopCamera = () => {
-    isRunningRef.current =
-      false;
-
-    if (
-      frameTimerRef.current
-    ) {
-      clearTimeout(
-        frameTimerRef.current
+  const stopCamera =
+    useCallback(() => {
+      console.log(
+        "🛑 Stopping AI scan..."
       );
 
-      frameTimerRef.current =
-        null;
-    }
+      isRunningRef.current =
+        false;
 
-    if (
-      streamRef.current
-    ) {
-      streamRef.current
-        .getTracks()
-        .forEach(
-          (track) =>
-            track.stop()
+      // Stop frame timer
+      if (
+        frameTimerRef.current !==
+        null
+      ) {
+        window.clearTimeout(
+          frameTimerRef.current
         );
 
-      streamRef.current =
-        null;
-    }
+        frameTimerRef.current =
+          null;
+      }
 
-    if (
-      socketRef.current
-    ) {
-      socketRef.current
-        .disconnect();
+      // Stop camera
+      if (
+        streamRef.current
+      ) {
+        streamRef.current
+          .getTracks()
+          .forEach(
+            (track) => {
+              track.stop();
+            }
+          );
 
-      socketRef.current =
-        null;
-    }
+        streamRef.current =
+          null;
+      }
 
-    setConnected(false);
+      // Close WebSocket
+      if (
+        socketRef.current
+      ) {
+        socketRef.current.disconnect();
 
-    setCameraStarted(false);
+        socketRef.current =
+          null;
+      }
 
-    setLandmarks([]);
+      setConnected(false);
 
-    const canvas =
-      canvasRef.current;
+      setCameraStarted(false);
 
-    const ctx =
-      canvas?.getContext("2d");
+      setLandmarks([]);
 
-    if (ctx && canvas) {
-      ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
+      setRisk(null);
+
+      setRiskLevel(
+        "Waiting"
       );
-    }
-  };
+
+      setFeedback(
+        "Position yourself in front of the camera."
+      );
+
+      const canvas =
+        canvasRef.current;
+
+      const ctx =
+        canvas?.getContext("2d");
+
+      if (
+        canvas &&
+        ctx
+      ) {
+        ctx.clearRect(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+      }
+    }, []);
 
   // ============================================================
   // INITIALIZE
@@ -589,7 +736,10 @@ const LivePoseCamera = () => {
     return () => {
       stopCamera();
     };
-  }, []);
+  }, [
+    startCamera,
+    stopCamera,
+  ]);
 
   // ============================================================
   // UI
@@ -607,7 +757,6 @@ const LivePoseCamera = () => {
         <div className="flex items-center justify-between">
 
           <div>
-
             <p className="text-sm font-semibold text-emerald-600">
               TrainSafe AI
             </p>
@@ -617,11 +766,10 @@ const LivePoseCamera = () => {
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
-              Perform your exercise in front of the
-              camera and TrainSafe will analyze your
-              movement.
+              Perform your exercise in front of
+              the camera and TrainSafe will
+              analyze your movement.
             </p>
-
           </div>
 
           <div
@@ -637,15 +785,15 @@ const LivePoseCamera = () => {
           </div>
 
         </div>
-
       </div>
 
-
       {/* ======================================================
-          CAMERA
+          CAMERA + PANEL
       ====================================================== */}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+
+        {/* CAMERA */}
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-sm">
 
@@ -657,8 +805,6 @@ const LivePoseCamera = () => {
             }}
           >
 
-            {/* VIDEO */}
-
             <video
               ref={videoRef}
               autoPlay
@@ -667,16 +813,12 @@ const LivePoseCamera = () => {
               className="absolute inset-0 h-full w-full object-cover"
             />
 
-            {/* POSE OVERLAY */}
-
             <canvas
               ref={canvasRef}
               width={VIDEO_WIDTH}
               height={VIDEO_HEIGHT}
               className="absolute inset-0 h-full w-full object-cover"
             />
-
-            {/* CAMERA STATUS */}
 
             {!cameraStarted && (
               <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80">
@@ -697,9 +839,7 @@ const LivePoseCamera = () => {
             )}
 
           </div>
-
         </div>
-
 
         {/* ==================================================
             AI PANEL
@@ -742,11 +882,11 @@ const LivePoseCamera = () => {
               </p>
 
             </div>
-
           </div>
 
-
-          {/* RISK */}
+          {/* ==================================================
+              RISK
+          ================================================== */}
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -789,8 +929,9 @@ const LivePoseCamera = () => {
 
           </div>
 
-
-          {/* FEEDBACK */}
+          {/* ==================================================
+              FEEDBACK
+          ================================================== */}
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -804,8 +945,9 @@ const LivePoseCamera = () => {
 
           </div>
 
-
-          {/* LANDMARK DEBUG */}
+          {/* ==================================================
+              DETECTION STATUS
+          ================================================== */}
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -870,11 +1012,11 @@ const LivePoseCamera = () => {
               </div>
 
             </div>
-
           </div>
 
-
-          {/* ERROR */}
+          {/* ==================================================
+              ERROR
+          ================================================== */}
 
           {error && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
@@ -882,8 +1024,9 @@ const LivePoseCamera = () => {
             </div>
           )}
 
-
-          {/* STOP */}
+          {/* ==================================================
+              STOP
+          ================================================== */}
 
           {cameraStarted && (
             <button
@@ -896,9 +1039,7 @@ const LivePoseCamera = () => {
           )}
 
         </div>
-
       </div>
-
     </div>
   );
 };
