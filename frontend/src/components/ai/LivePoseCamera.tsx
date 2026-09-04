@@ -1,379 +1,454 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { PoseSocket } from "../../services/poseSocket";
+import type { PoseAIResponse } from "../../services/poseSocket";
+const VIDEO_WIDTH = 640;
+const VIDEO_HEIGHT = 480;
 
-import {
-  PoseSocket,
-  type PoseAIResponse,
-} from "../../services/poseSocket";
+// 5 FPS - better for mobile and Render
+const SEND_INTERVAL = 200;
 
 interface Landmark {
-  id?: number;
   x: number;
   y: number;
   z?: number;
   visibility?: number;
 }
 
-const VIDEO_WIDTH = 640;
-const VIDEO_HEIGHT = 480;
-
-// 10 FPS
-const SEND_INTERVAL = 100;
-
 const LivePoseCamera = () => {
-  // ============================================================
-  // REFS
-  // ============================================================
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const videoRef =
-    useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const socketRef = useRef<PoseSocket | null>(null);
 
-  const canvasRef =
-    useRef<HTMLCanvasElement | null>(null);
+  const frameTimerRef = useRef<number | null>(null);
 
-  const socketRef =
-    useRef<PoseSocket | null>(null);
+  const mountedRef = useRef(false);
+  const startingRef = useRef(false);
 
-  const streamRef =
-    useRef<MediaStream | null>(null);
+  const [cameraStarted, setCameraStarted] = useState(false);
+  const [connected, setConnected] = useState(false);
 
-  const frameTimerRef =
-    useRef<number | null>(null);
+  const [landmarks, setLandmarks] = useState<Landmark[]>([]);
 
-  const isRunningRef =
-    useRef(false);
+  const [risk, setRisk] = useState<number | null>(null);
+  const [riskLevel, setRiskLevel] = useState("WAITING");
 
-  // ============================================================
-  // STATE
-  // ============================================================
-
-  const [connected, setConnected] =
-    useState(false);
-
-  const [cameraStarted, setCameraStarted] =
-    useState(false);
-
-  const [landmarks, setLandmarks] =
-    useState<Landmark[]>([]);
-
-  const [risk, setRisk] =
-    useState<number | null>(null);
-
-  const [riskLevel, setRiskLevel] =
-    useState("Waiting");
-
-  const [feedback, setFeedback] =
-    useState(
-      "Position yourself in front of the camera."
-    );
-
-  const [error, setError] =
-    useState("");
-
-  // ============================================================
-  // DRAW POSE
-  // ============================================================
-
-  const drawPose = useCallback(
-    (points: Landmark[]) => {
-      const canvas =
-        canvasRef.current;
-
-      if (!canvas) return;
-
-      const ctx =
-        canvas.getContext("2d");
-
-      if (!ctx) return;
-
-      ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-      if (
-        !points ||
-        points.length === 0
-      ) {
-        return;
-      }
-
-      // MediaPipe 33-point connections
-      const connections: [
-        number,
-        number
-      ][] = [
-        [0, 1],
-        [1, 2],
-        [2, 3],
-        [3, 7],
-
-        [0, 4],
-        [4, 5],
-        [5, 6],
-        [6, 8],
-
-        [9, 10],
-
-        [11, 12],
-
-        [11, 13],
-        [13, 15],
-
-        [12, 14],
-        [14, 16],
-
-        [11, 23],
-        [12, 24],
-
-        [23, 24],
-
-        [23, 25],
-        [25, 27],
-        [27, 29],
-        [29, 31],
-
-        [24, 26],
-        [26, 28],
-        [28, 30],
-        [30, 32],
-
-        [27, 31],
-        [28, 32],
-      ];
-
-      // ========================================================
-      // DRAW SKELETON
-      // ========================================================
-
-      ctx.lineWidth = 4;
-      ctx.lineCap = "round";
-      ctx.strokeStyle = "#22c55e";
-
-      connections.forEach(
-        ([start, end]) => {
-          const a = points[start];
-          const b = points[end];
-
-          if (!a || !b) {
-            return;
-          }
-
-          if (
-            a.visibility !== undefined &&
-            a.visibility < 0.4
-          ) {
-            return;
-          }
-
-          if (
-            b.visibility !== undefined &&
-            b.visibility < 0.4
-          ) {
-            return;
-          }
-
-          const ax =
-            a.x * canvas.width;
-
-          const ay =
-            a.y * canvas.height;
-
-          const bx =
-            b.x * canvas.width;
-
-          const by =
-            b.y * canvas.height;
-
-          ctx.beginPath();
-
-          ctx.moveTo(
-            ax,
-            ay
-          );
-
-          ctx.lineTo(
-            bx,
-            by
-          );
-
-          ctx.stroke();
-        }
-      );
-
-      // ========================================================
-      // DRAW JOINTS
-      // ========================================================
-
-      points.forEach(
-        (point) => {
-          if (!point) return;
-
-          if (
-            point.visibility !== undefined &&
-            point.visibility < 0.4
-          ) {
-            return;
-          }
-
-          const x =
-            point.x * canvas.width;
-
-          const y =
-            point.y * canvas.height;
-
-          ctx.beginPath();
-
-          ctx.arc(
-            x,
-            y,
-            5,
-            0,
-            Math.PI * 2
-          );
-
-          ctx.fillStyle = "#ffffff";
-          ctx.fill();
-
-          ctx.lineWidth = 2;
-          ctx.strokeStyle =
-            "#22c55e";
-
-          ctx.stroke();
-        }
-      );
-    },
-    []
+  const [feedback, setFeedback] = useState(
+    "Start your camera to begin AI analysis."
   );
+
+  const [recommendation, setRecommendation] = useState("");
+
+  const [warnings, setWarnings] = useState<string[]>([]);
+
+  const [error, setError] = useState("");
+
+  // ============================================================
+  // STOP FRAME LOOP
+  // ============================================================
+
+  const stopFrameLoop = useCallback(() => {
+    if (frameTimerRef.current !== null) {
+      window.clearTimeout(frameTimerRef.current);
+      frameTimerRef.current = null;
+    }
+  }, []);
 
   // ============================================================
   // HANDLE AI RESPONSE
   // ============================================================
 
-  const handleAIResponse =
-    useCallback(
-      (data: PoseAIResponse) => {
+  const handleAIResponse = useCallback(
+    (data: PoseAIResponse) => {
+      if (!mountedRef.current) {
+        return;
+      }
+
+      console.log("📥 RECEIVED FROM AI:", data);
+
+      // Pose landmarks
+      if (Array.isArray(data.landmarks)) {
+        setLandmarks(data.landmarks);
+      }
+
+      // Risk
+      if (typeof data.risk === "number") {
+        const value = Math.round(data.risk);
+
+        setRisk(value);
+
         console.log(
-          "🤖 TrainSafe AI:",
-          data
+          `🚨 INJURY RISK = ${value}%`
         );
+      }
 
-        // ======================================================
-        // LANDMARKS
-        // ======================================================
+      // Risk level
+      if (typeof data.risk_level === "string") {
+        setRiskLevel(data.risk_level);
+      }
 
-        if (
-          Array.isArray(
-            data.landmarks
-          )
-        ) {
-          setLandmarks(
-            data.landmarks
-          );
+      // Feedback
+      if (
+        typeof data.feedback === "string" &&
+        data.feedback.trim()
+      ) {
+        setFeedback(data.feedback);
+      }
 
-          drawPose(
-            data.landmarks
-          );
-        }
+      // Recommendation
+      if (
+        typeof data.recommendation === "string" &&
+        data.recommendation.trim()
+      ) {
+        setRecommendation(data.recommendation);
+      }
 
-        // ======================================================
-        // RISK
-        // ======================================================
+      // Warnings
+      if (Array.isArray(data.warnings)) {
+        setWarnings(data.warnings);
+      }
 
-        if (
-          typeof data.risk ===
-          "number"
-        ) {
-          setRisk(data.risk);
-        }
+      // No pose
+      if (data.detected === false) {
+        setFeedback(
+          "No pose detected. Keep your full body inside the frame."
+        );
+      }
 
-        // ======================================================
-        // RISK LEVEL
-        // ======================================================
-
-        if (
-          typeof data.risk_level ===
-          "string"
-        ) {
-          setRiskLevel(
-            data.risk_level
-          );
-        }
-
-        // ======================================================
-        // FEEDBACK
-        // ======================================================
-
-        if (
-          typeof data.feedback ===
-          "string"
-        ) {
-          setFeedback(
-            data.feedback
-          );
-        } else if (
-          typeof data.recommendation ===
-          "string"
-        ) {
-          setFeedback(
-            data.recommendation
-          );
-        } else if (
-          typeof data.message ===
-          "string"
-        ) {
-          setFeedback(
-            data.message
-          );
-        }
-      },
-      [drawPose]
-    );
+      // Backend error
+      if (data.success === false) {
+        setError(
+          data.message || "AI processing failed."
+        );
+      } else {
+        setError("");
+      }
+    },
+    []
+  );
 
   // ============================================================
-  // CONNECT AI
+  // SEND ONE FRAME
   // ============================================================
 
-  const connectAI =
-    useCallback(() => {
-      console.log(
-        "🔌 Connecting to TrainSafe AI..."
+  const sendFrame = useCallback(() => {
+    if (!mountedRef.current) {
+      return;
+    }
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const socket = socketRef.current;
+
+    if (!video || !canvas || !socket) {
+      return;
+    }
+
+    if (!socket.isConnected()) {
+      return;
+    }
+
+    if (
+      video.readyState <
+      HTMLMediaElement.HAVE_CURRENT_DATA
+    ) {
+      frameTimerRef.current = window.setTimeout(
+        sendFrame,
+        SEND_INTERVAL
       );
 
-      const socket =
-        new PoseSocket();
+      return;
+    }
 
-      socketRef.current =
-        socket;
+    if (
+      video.videoWidth === 0 ||
+      video.videoHeight === 0
+    ) {
+      frameTimerRef.current = window.setTimeout(
+        sendFrame,
+        SEND_INTERVAL
+      );
+
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return;
+    }
+
+    canvas.width = VIDEO_WIDTH;
+    canvas.height = VIDEO_HEIGHT;
+
+    context.drawImage(
+      video,
+      0,
+      0,
+      VIDEO_WIDTH,
+      VIDEO_HEIGHT
+    );
+
+    const image = canvas.toDataURL(
+      "image/jpeg",
+      0.55
+    );
+
+    socket.sendFrame(image);
+
+    frameTimerRef.current = window.setTimeout(
+      sendFrame,
+      SEND_INTERVAL
+    );
+  }, []);
+
+  // ============================================================
+  // START FRAME LOOP
+  // ============================================================
+
+  const startFrameLoop = useCallback(() => {
+    stopFrameLoop();
+
+    console.log(
+      "📡 Starting AI frame stream..."
+    );
+
+    sendFrame();
+  }, [sendFrame, stopFrameLoop]);
+
+  // ============================================================
+  // START CAMERA
+  // ============================================================
+
+  const startCamera = useCallback(async () => {
+    if (startingRef.current) {
+      return;
+    }
+
+    if (streamRef.current) {
+      return;
+    }
+
+    startingRef.current = true;
+
+    try {
+      setError("");
+      setRisk(null);
+      setRiskLevel("WAITING");
+      setLandmarks([]);
+      setWarnings([]);
+      setRecommendation("");
+
+      setFeedback(
+        "Requesting camera permission..."
+      );
+
+      console.log(
+        "📷 Requesting camera permission..."
+      );
+
+      // --------------------------------------------------------
+      // Camera permission
+      // --------------------------------------------------------
+
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: {
+              ideal: VIDEO_WIDTH,
+            },
+            height: {
+              ideal: VIDEO_HEIGHT,
+            },
+          },
+          audio: false,
+        });
+
+      if (!mountedRef.current) {
+        stream
+          .getTracks()
+          .forEach((track) => track.stop());
+
+        return;
+      }
+
+      streamRef.current = stream;
+
+      const video = videoRef.current;
+
+      if (!video) {
+        stream
+          .getTracks()
+          .forEach((track) => track.stop());
+
+        streamRef.current = null;
+
+        throw new Error(
+          "Video element not found."
+        );
+      }
+
+      // --------------------------------------------------------
+      // Mobile-safe settings
+      // --------------------------------------------------------
+
+      video.muted = true;
+      video.autoplay = true;
+      video.playsInline = true;
+
+      video.setAttribute(
+        "autoplay",
+        ""
+      );
+
+      video.setAttribute(
+        "muted",
+        ""
+      );
+
+      video.setAttribute(
+        "playsinline",
+        ""
+      );
+
+      // Attach stream
+      video.srcObject = stream;
+
+      console.log(
+        "📷 Camera stream attached"
+      );
+
+      // --------------------------------------------------------
+      // Wait for metadata
+      // --------------------------------------------------------
+
+      await new Promise<void>((resolve) => {
+        if (
+          video.readyState >=
+          HTMLMediaElement.HAVE_METADATA
+        ) {
+          resolve();
+          return;
+        }
+
+        const onMetadata = () => {
+          video.removeEventListener(
+            "loadedmetadata",
+            onMetadata
+          );
+
+          resolve();
+        };
+
+        video.addEventListener(
+          "loadedmetadata",
+          onMetadata
+        );
+      });
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      // --------------------------------------------------------
+      // Start video
+      // --------------------------------------------------------
+
+      try {
+        await video.play();
+
+        console.log(
+          "▶️ Camera video started"
+        );
+      } catch (playError) {
+        if (
+          playError instanceof DOMException &&
+          playError.name === "AbortError"
+        ) {
+          console.log(
+            "📷 play() interrupted. Retrying..."
+          );
+
+          await new Promise<void>((resolve) => {
+            window.setTimeout(
+              resolve,
+              300
+            );
+          });
+
+          if (
+            mountedRef.current &&
+            video.srcObject
+          ) {
+            await video.play();
+
+            console.log(
+              "▶️ Camera started after retry"
+            );
+          }
+        } else {
+          throw playError;
+        }
+      }
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setCameraStarted(true);
+
+      setFeedback(
+        "Camera ready. Connecting to TrainSafe AI..."
+      );
+
+      console.log(
+        "📷 Camera started"
+      );
+
+      // --------------------------------------------------------
+      // WebSocket
+      // --------------------------------------------------------
+
+      const socket = new PoseSocket();
+
+      socketRef.current = socket;
 
       socket.connect(
         // ======================================================
         // MESSAGE
         // ======================================================
 
-        handleAIResponse,
+        (data: PoseAIResponse) => {
+          handleAIResponse(data);
+        },
 
         // ======================================================
         // ERROR
         // ======================================================
 
-        (socketError) => {
+        (socketError: Event) => {
           console.error(
             "❌ AI WebSocket error:",
             socketError
           );
+
+          if (!mountedRef.current) {
+            return;
+          }
 
           setConnected(false);
 
           setError(
             "Unable to connect to TrainSafe AI."
           );
+
+          setFeedback(
+            "AI connection error."
+          );
+
+          stopFrameLoop();
         },
 
         // ======================================================
@@ -382,10 +457,20 @@ const LivePoseCamera = () => {
 
         () => {
           console.log(
-            "🔌 AI WebSocket disconnected"
+            "🔴 AI WebSocket disconnected"
           );
 
+          if (!mountedRef.current) {
+            return;
+          }
+
           setConnected(false);
+
+          setFeedback(
+            "AI connection disconnected."
+          );
+
+          stopFrameLoop();
         },
 
         // ======================================================
@@ -394,652 +479,453 @@ const LivePoseCamera = () => {
 
         () => {
           console.log(
-            "✅ AI WebSocket connected"
+            "🟢 AI WebSocket connected successfully"
           );
+
+          if (!mountedRef.current) {
+            return;
+          }
 
           setConnected(true);
 
           setError("");
 
-          // IMPORTANT:
-          // Start sending frames ONLY
-          // after the socket actually opens.
+          setFeedback(
+            "AI connected. Analyzing your movement..."
+          );
 
+          // Start frames ONLY after WebSocket OPEN
           startFrameLoop();
         }
       );
-    }, [
-      handleAIResponse,
-    ]);
-
-  // ============================================================
-  // FRAME LOOP
-  // ============================================================
-
-  const startFrameLoop =
-    useCallback(() => {
-      if (
-        isRunningRef.current
-      ) {
-        return;
-      }
-
-      const canvas =
-        canvasRef.current;
-
-      const video =
-        videoRef.current;
-
-      if (
-        !canvas ||
-        !video
-      ) {
-        console.error(
-          "❌ Canvas or video not found."
-        );
-
-        return;
-      }
-
-      const ctx =
-        canvas.getContext("2d");
-
-      if (!ctx) {
-        console.error(
-          "❌ Canvas context unavailable."
-        );
-
-        return;
-      }
-
-      canvas.width =
-        VIDEO_WIDTH;
-
-      canvas.height =
-        VIDEO_HEIGHT;
-
-      isRunningRef.current =
-        true;
-
-      console.log(
-        "🎥 AI frame stream started"
+    } catch (cameraError) {
+      console.error(
+        "❌ Camera initialization failed:",
+        cameraError
       );
 
-      const sendFrame =
-        () => {
-          if (
-            !isRunningRef.current
-          ) {
-            return;
-          }
+      if (!mountedRef.current) {
+        return;
+      }
 
-          // ====================================================
-          // MAKE SURE SOCKET IS CONNECTED
-          // ====================================================
+      if (streamRef.current) {
+        streamRef.current
+          .getTracks()
+          .forEach((track) => track.stop());
 
-          if (
-            !socketRef.current ||
-            !socketRef.current.isConnected()
-          ) {
-            console.warn(
-              "⚠️ AI socket not connected yet"
-            );
+        streamRef.current = null;
+      }
 
-            frameTimerRef.current =
-              window.setTimeout(
-                sendFrame,
-                SEND_INTERVAL
-              );
+      setCameraStarted(false);
 
-            return;
-          }
-
-          // ====================================================
-          // MAKE SURE VIDEO IS READY
-          // ====================================================
-
-          if (
-            video.readyState >=
-            HTMLMediaElement.HAVE_CURRENT_DATA
-          ) {
-            ctx.drawImage(
-              video,
-              0,
-              0,
-              VIDEO_WIDTH,
-              VIDEO_HEIGHT
-            );
-
-            // ==================================================
-            // JPEG COMPRESSION
-            // ==================================================
-
-            const image =
-              canvas.toDataURL(
-                "image/jpeg",
-                0.6
-              );
-
-            // ==================================================
-            // SEND TO AI
-            // ==================================================
-
-            socketRef.current.sendFrame(
-              image
-            );
-          }
-
-          frameTimerRef.current =
-            window.setTimeout(
-              sendFrame,
-              SEND_INTERVAL
-            );
-        };
-
-      sendFrame();
-    }, []);
-
-  // ============================================================
-  // START CAMERA
-  // ============================================================
-
-  const startCamera =
-    useCallback(
-      async () => {
-        try {
-          setError("");
-
-          console.log(
-            "📷 Starting camera..."
-          );
-
-          if (
-            !navigator.mediaDevices?.getUserMedia
-          ) {
-            throw new Error(
-              "Camera access is not supported by this browser."
-            );
-          }
-
-          const stream =
-            await navigator.mediaDevices.getUserMedia(
-              {
-                video: {
-                  width: {
-                    ideal: VIDEO_WIDTH,
-                  },
-
-                  height: {
-                    ideal: VIDEO_HEIGHT,
-                  },
-
-                  frameRate: {
-                    ideal: 15,
-                    max: 20,
-                  },
-
-                  facingMode:
-                    "user",
-                },
-
-                audio: false,
-              }
-            );
-
-          streamRef.current =
-            stream;
-
-          const video =
-            videoRef.current;
-
-          if (!video) {
-            throw new Error(
-              "Video element not available."
-            );
-          }
-
-          video.srcObject =
-            stream;
-
-          video.muted =
-            true;
-
-          video.playsInline =
-            true;
-
-          await video.play();
-
-          setCameraStarted(
-            true
-          );
-
-          console.log(
-            "📷 Camera started"
-          );
-
-          // ======================================================
-          // CONNECT AFTER CAMERA READY
-          // ======================================================
-
-          connectAI();
-
-        } catch (err) {
-          console.error(
-            "❌ Camera error:",
-            err
-          );
-
+      if (
+        cameraError instanceof DOMException
+      ) {
+        if (
+          cameraError.name ===
+          "NotAllowedError"
+        ) {
           setError(
-            err instanceof Error
-              ? err.message
-              : "Camera permission was denied or camera is unavailable."
+            "Camera permission denied. Please allow camera access."
+          );
+        } else if (
+          cameraError.name ===
+          "NotFoundError"
+        ) {
+          setError(
+            "No camera was found on this device."
+          );
+        } else if (
+          cameraError.name ===
+          "NotReadableError"
+        ) {
+          setError(
+            "Camera is being used by another application."
+          );
+        } else {
+          setError(
+            "Unable to start camera."
           );
         }
-      },
-      [connectAI]
-    );
+      } else {
+        setError(
+          "Unable to start camera."
+        );
+      }
+
+      setFeedback(
+        "Camera could not be started."
+      );
+    } finally {
+      startingRef.current = false;
+    }
+  }, [
+    handleAIResponse,
+    startFrameLoop,
+    stopFrameLoop,
+  ]);
 
   // ============================================================
   // STOP CAMERA
   // ============================================================
 
-  const stopCamera =
-    useCallback(() => {
-      console.log(
-        "🛑 Stopping AI scan..."
-      );
+  const stopCamera = useCallback(() => {
+    console.log(
+      "🛑 Stopping TrainSafe AI..."
+    );
 
-      isRunningRef.current =
-        false;
+    stopFrameLoop();
 
-      // Stop frame timer
-      if (
-        frameTimerRef.current !==
-        null
-      ) {
-        window.clearTimeout(
-          frameTimerRef.current
-        );
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
 
-        frameTimerRef.current =
-          null;
-      }
+    if (streamRef.current) {
+      streamRef.current
+        .getTracks()
+        .forEach((track) => track.stop());
 
-      // Stop camera
-      if (
-        streamRef.current
-      ) {
-        streamRef.current
-          .getTracks()
-          .forEach(
-            (track) => {
-              track.stop();
-            }
-          );
+      streamRef.current = null;
+    }
 
-        streamRef.current =
-          null;
-      }
+    const video = videoRef.current;
 
-      // Close WebSocket
-      if (
-        socketRef.current
-      ) {
-        socketRef.current.disconnect();
+    if (video) {
+      video.pause();
+      video.srcObject = null;
+    }
 
-        socketRef.current =
-          null;
-      }
+    setCameraStarted(false);
+    setConnected(false);
 
-      setConnected(false);
+    setRisk(null);
+    setRiskLevel("WAITING");
 
-      setCameraStarted(false);
+    setLandmarks([]);
+    setWarnings([]);
+    setRecommendation("");
 
-      setLandmarks([]);
+    setFeedback(
+      "Start your camera to begin AI analysis."
+    );
 
-      setRisk(null);
-
-      setRiskLevel(
-        "Waiting"
-      );
-
-      setFeedback(
-        "Position yourself in front of the camera."
-      );
-
-      const canvas =
-        canvasRef.current;
-
-      const ctx =
-        canvas?.getContext("2d");
-
-      if (
-        canvas &&
-        ctx
-      ) {
-        ctx.clearRect(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-      }
-    }, []);
+    setError("");
+  }, [stopFrameLoop]);
 
   // ============================================================
-  // INITIALIZE
+  // COMPONENT CLEANUP
   // ============================================================
 
   useEffect(() => {
-    startCamera();
+    mountedRef.current = true;
 
     return () => {
-      stopCamera();
+      mountedRef.current = false;
+
+      stopFrameLoop();
+
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+
+      if (streamRef.current) {
+        streamRef.current
+          .getTracks()
+          .forEach((track) => track.stop());
+
+        streamRef.current = null;
+      }
+
+      const video = videoRef.current;
+
+      if (video) {
+        video.pause();
+        video.srcObject = null;
+      }
     };
-  }, [
-    startCamera,
-    stopCamera,
-  ]);
+  }, [stopFrameLoop]);
 
   // ============================================================
-  // UI
+  // RISK COLOR
+  // ============================================================
+
+  const getRiskColor = () => {
+    switch (riskLevel) {
+      case "LOW":
+        return "text-green-600";
+
+      case "MODERATE":
+        return "text-yellow-600";
+
+      case "HIGH":
+        return "text-orange-600";
+
+      case "CRITICAL":
+        return "text-red-600";
+
+      default:
+        return "text-slate-500";
+    }
+  };
+
+  // ============================================================
+  // RENDER
   // ============================================================
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
 
       {/* ======================================================
-          HEADER
-      ====================================================== */}
+          CAMERA
+      ======================================================= */}
 
-      <div className="mb-6">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-sm">
 
-        <div className="flex items-center justify-between">
+        <div className="relative aspect-video w-full">
 
-          <div>
-            <p className="text-sm font-semibold text-emerald-600">
-              TrainSafe AI
-            </p>
+          <video
+            ref={videoRef}
+            autoPlay
+            muted
+            playsInline
+            className="absolute inset-0 h-full w-full object-cover"
+          />
 
-            <h1 className="mt-1 text-2xl font-bold text-slate-900">
-              AI Posture Analysis
-            </h1>
+          {/* Connection status */}
 
-            <p className="mt-1 text-sm text-slate-500">
-              Perform your exercise in front of
-              the camera and TrainSafe will
-              analyze your movement.
-            </p>
-          </div>
+          <div className="absolute left-4 top-4">
 
-          <div
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              connected
-                ? "bg-emerald-50 text-emerald-600"
-                : "bg-red-50 text-red-500"
-            }`}
-          >
-            {connected
-              ? "● AI Connected"
-              : "● AI Disconnected"}
-          </div>
-
-        </div>
-      </div>
-
-      {/* ======================================================
-          CAMERA + PANEL
-      ====================================================== */}
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-
-        {/* CAMERA */}
-
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-sm">
-
-          <div
-            className="relative"
-            style={{
-              width: "100%",
-              aspectRatio: "4 / 3",
-            }}
-          >
-
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-
-            <canvas
-              ref={canvasRef}
-              width={VIDEO_WIDTH}
-              height={VIDEO_HEIGHT}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-
-            {!cameraStarted && (
-              <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80">
-
-                <div className="text-center text-white">
-
-                  <div className="text-lg font-semibold">
-                    Starting camera...
-                  </div>
-
-                  <div className="mt-1 text-sm text-slate-400">
-                    Please allow camera access.
-                  </div>
-
-                </div>
-
-              </div>
-            )}
-
-          </div>
-        </div>
-
-        {/* ==================================================
-            AI PANEL
-        ================================================== */}
-
-        <div className="space-y-4">
-
-          {/* AI STATUS */}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-            <div className="flex items-center justify-between">
-
-              <h2 className="font-bold text-slate-900">
-                AI Detection
-              </h2>
-
-              <div
-                className={`h-3 w-3 rounded-full ${
-                  connected
-                    ? "bg-emerald-500"
-                    : "bg-red-500"
-                }`}
-              />
-
+            <div
+              className={`rounded-full px-3 py-2 text-sm text-white backdrop-blur ${
+                connected
+                  ? "bg-green-600/80"
+                  : cameraStarted
+                    ? "bg-yellow-600/80"
+                    : "bg-black/60"
+              }`}
+            >
+              {connected
+                ? "🟢 AI Connected"
+                : cameraStarted
+                  ? "🟡 Connecting..."
+                  : "⚪ Camera Off"}
             </div>
 
-            <div className="mt-5">
-
-              <p className="text-sm text-slate-500">
-                Landmarks detected
-              </p>
-
-              <p className="mt-1 text-4xl font-bold text-slate-900">
-                {landmarks.length}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                Expected: up to 33 pose points
-              </p>
-
-            </div>
           </div>
 
-          {/* ==================================================
-              RISK
-          ================================================== */}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-            <p className="text-sm font-medium text-slate-500">
-              Injury Risk
-            </p>
-
-            <div className="mt-2 flex items-end gap-2">
-
-              <span className="text-4xl font-bold text-slate-900">
-                {risk !== null
-                  ? `${risk}%`
-                  : "--"}
-              </span>
-
-              <span className="mb-1 text-sm font-semibold text-emerald-600">
-                {riskLevel}
-              </span>
-
-            </div>
-
-            {risk !== null && (
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all"
-                  style={{
-                    width: `${Math.min(
-                      Math.max(
-                        risk,
-                        0
-                      ),
-                      100
-                    )}%`,
-                  }}
-                />
-
-              </div>
-            )}
-
-          </div>
-
-          {/* ==================================================
-              FEEDBACK
-          ================================================== */}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-            <p className="text-sm font-medium text-slate-500">
-              AI Feedback
-            </p>
-
-            <p className="mt-3 text-sm leading-6 text-slate-700">
-              {feedback}
-            </p>
-
-          </div>
-
-          {/* ==================================================
-              DETECTION STATUS
-          ================================================== */}
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-            <p className="text-sm font-medium text-slate-500">
-              Detection Status
-            </p>
-
-            <div className="mt-3 space-y-2 text-sm">
-
-              <div className="flex justify-between">
-
-                <span className="text-slate-500">
-                  Camera
-                </span>
-
-                <span className="font-semibold">
-                  {cameraStarted
-                    ? "Ready"
-                    : "Off"}
-                </span>
-
-              </div>
-
-              <div className="flex justify-between">
-
-                <span className="text-slate-500">
-                  WebSocket
-                </span>
-
-                <span
-                  className={
-                    connected
-                      ? "font-semibold text-emerald-600"
-                      : "font-semibold text-red-500"
-                  }
-                >
-                  {connected
-                    ? "Connected"
-                    : "Disconnected"}
-                </span>
-
-              </div>
-
-              <div className="flex justify-between">
-
-                <span className="text-slate-500">
-                  Pose
-                </span>
-
-                <span
-                  className={
-                    landmarks.length > 0
-                      ? "font-semibold text-emerald-600"
-                      : "font-semibold text-amber-500"
-                  }
-                >
-                  {landmarks.length > 0
-                    ? "Detected"
-                    : "Searching..."}
-                </span>
-
-              </div>
-
-            </div>
-          </div>
-
-          {/* ==================================================
-              ERROR
-          ================================================== */}
-
-          {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
-              {error}
-            </div>
-          )}
-
-          {/* ==================================================
-              STOP
-          ================================================== */}
+          {/* Pose status */}
 
           {cameraStarted && (
-            <button
-              type="button"
-              onClick={stopCamera}
-              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Stop AI Scan
-            </button>
+            <div className="absolute bottom-4 left-4">
+
+              <div className="rounded-lg bg-black/60 px-3 py-2 text-sm text-white backdrop-blur">
+
+                {landmarks.length > 0
+                  ? `🟢 Pose Detected • ${landmarks.length} landmarks`
+                  : "🟡 Looking for pose..."}
+
+              </div>
+
+            </div>
           )}
 
         </div>
+
       </div>
+
+      {/* Hidden canvas */}
+
+      <canvas
+        ref={canvasRef}
+        width={VIDEO_WIDTH}
+        height={VIDEO_HEIGHT}
+        className="hidden"
+      />
+
+      {/* ======================================================
+          START / STOP
+      ======================================================= */}
+
+      {!cameraStarted ? (
+        <button
+          type="button"
+          onClick={startCamera}
+          className="w-full rounded-xl bg-slate-900 px-6 py-4 font-semibold text-white transition hover:bg-slate-800"
+        >
+          📷 Start Camera & AI Analysis
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={stopCamera}
+          className="w-full rounded-xl border border-red-200 bg-red-50 px-6 py-4 font-semibold text-red-700 transition hover:bg-red-100"
+        >
+          ⏹ Stop Camera
+        </button>
+      )}
+
+      {/* ======================================================
+          ERROR
+      ======================================================= */}
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+
+          <div className="font-semibold">
+            Camera / AI Error
+          </div>
+
+          <div className="mt-1">
+            {error}
+          </div>
+
+        </div>
+      )}
+
+      {/* ======================================================
+          RISK + FEEDBACK
+      ======================================================= */}
+
+      <div className="grid gap-6 md:grid-cols-2">
+
+        {/* Risk */}
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+          <div className="text-sm font-medium text-slate-500">
+            Injury Risk
+          </div>
+
+          <div
+            className={`mt-2 text-5xl font-bold ${getRiskColor()}`}
+          >
+            {risk === null
+              ? "--"
+              : `${risk}%`}
+          </div>
+
+          <div className="mt-2 text-sm font-semibold text-slate-700">
+            {riskLevel === "WAITING"
+              ? "Waiting"
+              : riskLevel}
+          </div>
+
+          <p className="mt-2 text-sm text-slate-500">
+            {riskLevel === "LOW"
+              ? "Low movement risk"
+              : riskLevel === "MODERATE"
+                ? "Moderate movement risk"
+                : riskLevel === "HIGH"
+                  ? "High movement risk"
+                  : riskLevel === "CRITICAL"
+                    ? "Critical movement risk"
+                    : "Waiting for AI analysis"}
+          </p>
+
+        </div>
+
+        {/* Feedback */}
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+          <div className="text-sm font-medium text-slate-500">
+            AI Feedback
+          </div>
+
+          <div className="mt-3 text-lg font-semibold text-slate-900">
+            {feedback}
+          </div>
+
+          {recommendation && (
+            <p className="mt-3 text-sm text-slate-500">
+              {recommendation}
+            </p>
+          )}
+
+        </div>
+
+      </div>
+
+      {/* ======================================================
+          WARNINGS
+      ======================================================= */}
+
+      {warnings.length > 0 && (
+        <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6">
+
+          <div className="font-semibold text-yellow-800">
+            ⚠️ Movement Warnings
+          </div>
+
+          <ul className="mt-3 space-y-2 text-sm text-yellow-700">
+
+            {warnings.map(
+              (warning, index) => (
+                <li
+                  key={`${warning}-${index}`}
+                >
+                  • {warning}
+                </li>
+              )
+            )}
+
+          </ul>
+
+        </div>
+      )}
+
+      {/* ======================================================
+          STATUS
+      ======================================================= */}
+
+      <div className="rounded-2xl bg-slate-50 p-6">
+
+        <h3 className="font-semibold text-slate-900">
+          TrainSafe AI Status
+        </h3>
+
+        <div className="mt-4 space-y-2 text-sm text-slate-600">
+
+          <div>
+            Camera:{" "}
+            {cameraStarted
+              ? "🟢 Active"
+              : "⚪ Off"}
+          </div>
+
+          <div>
+            WebSocket:{" "}
+            {connected
+              ? "🟢 Connected"
+              : "🔴 Disconnected"}
+          </div>
+
+          <div>
+            Pose:{" "}
+            {landmarks.length > 0
+              ? `🟢 ${landmarks.length} landmarks detected`
+              : "🟡 Waiting"}
+          </div>
+
+          <div>
+            Injury Risk:{" "}
+            {risk === null
+              ? "🟡 Waiting"
+              : `🟢 ${risk}% ${riskLevel}`}
+          </div>
+
+        </div>
+
+        <p className="mt-4 text-xs text-slate-400">
+          TrainSafe AI provides a prototype
+          movement-risk assessment and is not
+          a medical diagnosis.
+        </p>
+
+      </div>
+
     </div>
   );
 };

@@ -1,9 +1,8 @@
 import base64
-import json
+import time
 
 import cv2
 import numpy as np
-
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.vision.pose_detector import PoseDetector
@@ -11,138 +10,233 @@ from app.vision.pose_detector import PoseDetector
 
 router = APIRouter()
 
-
+print("🚀 Creating PoseDetector...")
 pose_detector = PoseDetector()
+print("✅ PoseDetector ready")
 
-
-# ============================================================
-# WEBSOCKET
-# ============================================================
 
 @router.websocket("/ws/pose")
-async def pose_stream(websocket: WebSocket):
+async def pose_websocket(websocket: WebSocket):
 
     await websocket.accept()
 
     print("🟢 Pose WebSocket connected")
 
+    # MediaPipe VIDEO mode needs increasing timestamps
+    last_timestamp = 0
+
     try:
 
         while True:
 
-            # ------------------------------------------------
-            # Receive frame from React
-            # ------------------------------------------------
+            # ========================================================
+            # RECEIVE FRAME
+            # ========================================================
 
             data = await websocket.receive_text()
 
+            if not data:
+                continue
 
-            # ------------------------------------------------
-            # Remove data URL prefix
-            # ------------------------------------------------
+            # ========================================================
+            # REMOVE DATA URL PREFIX
+            # ========================================================
 
             if "," in data:
 
-                data = data.split(",", 1)[1]
+                data = data.split(
+                    ",",
+                    1,
+                )[1]
 
+            # ========================================================
+            # BASE64 -> BYTES
+            # ========================================================
 
-            # ------------------------------------------------
-            # Base64 → bytes
-            # ------------------------------------------------
+            try:
 
-            image_bytes = base64.b64decode(
-                data
-            )
+                image_bytes = base64.b64decode(
+                    data
+                )
 
+            except Exception as error:
 
-            # ------------------------------------------------
-            # bytes → numpy
-            # ------------------------------------------------
+                print(
+                    f"❌ Base64 decode error: {error}"
+                )
 
-            np_array = np.frombuffer(
-                image_bytes,
-                dtype=np.uint8
-            )
-
-
-            # ------------------------------------------------
-            # Decode JPEG
-            # ------------------------------------------------
-
-            frame = cv2.imdecode(
-                np_array,
-                cv2.IMREAD_COLOR
-            )
-
-
-            if frame is None:
-
-                await websocket.send_json({
-
-                    "success": False,
-
-                    "message": "Invalid image"
-                })
+                await websocket.send_json(
+                    {
+                        "success": False,
+                        "detected": False,
+                        "risk": None,
+                        "risk_level": "WAITING",
+                        "message": "Invalid image data.",
+                    }
+                )
 
                 continue
 
+            # ========================================================
+            # BYTES -> NUMPY
+            # ========================================================
 
-            # ------------------------------------------------
-            # BGR → RGB
-            # ------------------------------------------------
-
-            rgb = cv2.cvtColor(
-                frame,
-                cv2.COLOR_BGR2RGB
+            np_array = np.frombuffer(
+                image_bytes,
+                dtype=np.uint8,
             )
 
+            # ========================================================
+            # NUMPY -> OPENCV IMAGE
+            # ========================================================
 
-            # ------------------------------------------------
-            # MediaPipe Image
-            # ------------------------------------------------
-
-            mp_image = __import__(
-                "mediapipe"
-            ).Image(
-
-                image_format=(
-                    __import__(
-                        "mediapipe"
-                    ).ImageFormat.SRGB
-                ),
-
-                data=rgb
+            frame = cv2.imdecode(
+                np_array,
+                cv2.IMREAD_COLOR,
             )
 
+            if frame is None:
 
-            # ------------------------------------------------
-            # AI DETECTION
-            # ------------------------------------------------
+                print(
+                    "❌ Could not decode image"
+                )
 
-            result = pose_detector.detect(
-                mp_image
+                await websocket.send_json(
+                    {
+                        "success": False,
+                        "detected": False,
+                        "risk": None,
+                        "risk_level": "WAITING",
+                        "message": "Could not decode image.",
+                    }
+                )
+
+                continue
+
+            # ========================================================
+            # TIMESTAMP
+            # ========================================================
+
+            current_timestamp = int(
+                time.time() * 1000
             )
 
+            if current_timestamp <= last_timestamp:
 
-            # ------------------------------------------------
-            # Send result to React
-            # ------------------------------------------------
+                current_timestamp = (
+                    last_timestamp + 1
+                )
 
-            await websocket.send_json({
+            last_timestamp = (
+                current_timestamp
+            )
 
+            # ========================================================
+            # POSE DETECTION
+            # ========================================================
+
+            try:
+
+                result = pose_detector.detect(
+                    frame,
+                    timestamp_ms=current_timestamp,
+                )
+
+            except Exception as error:
+
+                print(
+                    f"❌ Pose detection error: {error}"
+                )
+
+                await websocket.send_json(
+                    {
+                        "success": False,
+                        "detected": False,
+                        "risk": None,
+                        "risk_level": "WAITING",
+                        "message": str(error),
+                    }
+                )
+
+                continue
+
+            # ========================================================
+            # SEND RESULT
+            # ========================================================
+
+            response = {
                 "success": True,
 
-                "detected": result["detected"],
+                "detected": result.get(
+                    "detected",
+                    False,
+                ),
 
-                "landmarks": result["landmarks"],
+                "landmarks": result.get(
+                    "landmarks",
+                    [],
+                ),
 
-                "angles": result["angles"],
+                "angles": result.get(
+                    "angles",
+                    {},
+                ),
 
-                "status": result["status"],
+                "risk": result.get(
+                    "risk",
+                    None,
+                ),
 
-                "message": result["message"]
-            })
+                "risk_level": result.get(
+                    "risk_level",
+                    "WAITING",
+                ),
 
+                "warnings": result.get(
+                    "warnings",
+                    [],
+                ),
+
+                "feedback": result.get(
+                    "feedback",
+                    "",
+                ),
+
+                "recommendation": result.get(
+                    "recommendation",
+                    "",
+                ),
+
+                "metrics": result.get(
+                    "metrics",
+                    {},
+                ),
+
+                "status": result.get(
+                    "status",
+                    "",
+                ),
+
+                "message": result.get(
+                    "message",
+                    "",
+                ),
+            }
+
+            await websocket.send_json(
+                response
+            )
+
+            # ========================================================
+            # DEBUG
+            # ========================================================
+
+            print(
+                f"📤 Pose: "
+                f"detected={response['detected']} | "
+                f"risk={response['risk']} | "
+                f"level={response['risk_level']}"
+            )
 
     except WebSocketDisconnect:
 
@@ -150,12 +244,10 @@ async def pose_stream(websocket: WebSocket):
             "🔴 Pose WebSocket disconnected"
         )
 
-
     except Exception as error:
 
         print(
-            "❌ Pose WebSocket error:",
-            error
+            f"❌ Pose WebSocket error: {error}"
         )
 
         try:

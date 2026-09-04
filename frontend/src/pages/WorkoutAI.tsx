@@ -1,589 +1,310 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { PoseSocket, type PoseAIResponse } from "../services/poseSocket";
+import LivePoseCamera from "../components/ai/LivePoseCamera";
 
-const LivePoseCamera = () => {
-  // =========================================================
-  // REFS
-  // =========================================================
-
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const poseSocketRef = useRef<PoseSocket | null>(null);
-
-  const streamRef = useRef<MediaStream | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-
-  const lastFrameTimeRef = useRef<number>(0);
-
-  // Send approximately 10 FPS instead of every camera frame.
-  const FRAME_INTERVAL = 100;
-
-  // =========================================================
-  // STATE
-  // =========================================================
-
-  const [cameraReady, setCameraReady] = useState(false);
-  const [wsConnected, setWsConnected] = useState(false);
-  const [poseDetected, setPoseDetected] = useState(false);
-
-  const [aiResponse, setAiResponse] =
-    useState<PoseAIResponse | null>(null);
-
-  const [error, setError] = useState<string | null>(null);
-
-  // =========================================================
-  // HANDLE AI RESPONSE
-  // =========================================================
-
-  const handleAIMessage = useCallback(
-    (data: PoseAIResponse) => {
-      console.log("🤖 AI response:", data);
-
-      setAiResponse(data);
-
-      if (data.landmarks && data.landmarks.length > 0) {
-        setPoseDetected(true);
-      } else {
-        setPoseDetected(false);
-      }
-    },
-    []
-  );
-
-  // =========================================================
-  // START CAMERA
-  // =========================================================
-
-  const startCamera = useCallback(async () => {
-    try {
-      setError(null);
-
-      console.log("📷 Starting camera...");
-
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error(
-          "Camera access is not supported by this browser."
-        );
-      }
-
-      const stream =
-        await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: {
-              ideal: 640,
-            },
-            height: {
-              ideal: 480,
-            },
-            frameRate: {
-              ideal: 15,
-              max: 20,
-            },
-          },
-          audio: false,
-        });
-
-      streamRef.current = stream;
-
-      const video = videoRef.current;
-
-      if (!video) {
-        throw new Error("Video element not available.");
-      }
-
-      video.srcObject = stream;
-
-      video.setAttribute("playsinline", "true");
-      video.setAttribute("autoplay", "true");
-      video.muted = true;
-
-      await video.play();
-
-      setCameraReady(true);
-
-      console.log("📷 Camera started");
-    } catch (err) {
-      console.error(
-        "❌ Camera error:",
-        err
-      );
-
-      setCameraReady(false);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to access camera."
-      );
-    }
-  }, []);
-
-  // =========================================================
-  // CONNECT AI WEBSOCKET
-  // =========================================================
-
-  const connectAI = useCallback(() => {
-    console.log(
-      "🔌 Connecting to TrainSafe AI..."
-    );
-
-    const poseSocket = new PoseSocket();
-
-    poseSocketRef.current = poseSocket;
-
-    poseSocket.connect(
-      // =====================================================
-      // MESSAGE
-      // =====================================================
-
-      (data) => {
-        handleAIMessage(data);
-      },
-
-      // =====================================================
-      // ERROR
-      // =====================================================
-
-      (event) => {
-        console.error(
-          "❌ AI WebSocket error:",
-          event
-        );
-
-        setWsConnected(false);
-
-        setError(
-          "Unable to connect to TrainSafe AI."
-        );
-      },
-
-      // =====================================================
-      // DISCONNECT
-      // =====================================================
-
-      () => {
-        console.log(
-          "🔌 AI WebSocket disconnected"
-        );
-
-        setWsConnected(false);
-      },
-
-      // =====================================================
-      // CONNECTED
-      // =====================================================
-
-      () => {
-        console.log(
-          "✅ AI WebSocket connected"
-        );
-
-        setWsConnected(true);
-
-        setError(null);
-      }
-    );
-  }, [handleAIMessage]);
-
-  // =========================================================
-  // CAPTURE + SEND FRAME
-  // =========================================================
-
-  const sendFrame = useCallback(
-    (timestamp: number) => {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const socket = poseSocketRef.current;
-
-      if (
-        !video ||
-        !canvas ||
-        !socket
-      ) {
-        animationFrameRef.current =
-          requestAnimationFrame(sendFrame);
-
-        return;
-      }
-
-      // Keep frame rate controlled.
-      if (
-        timestamp - lastFrameTimeRef.current <
-        FRAME_INTERVAL
-      ) {
-        animationFrameRef.current =
-          requestAnimationFrame(sendFrame);
-
-        return;
-      }
-
-      lastFrameTimeRef.current = timestamp;
-
-      // Only send when everything is ready.
-      if (
-        video.readyState >=
-          HTMLMediaElement.HAVE_CURRENT_DATA &&
-        socket.isConnected()
-      ) {
-        const width = 640;
-        const height = 480;
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const context =
-          canvas.getContext("2d");
-
-        if (context) {
-          context.drawImage(
-            video,
-            0,
-            0,
-            width,
-            height
-          );
-
-          // Compress the image before sending.
-          const image =
-            canvas.toDataURL(
-              "image/jpeg",
-              0.6
-            );
-
-          socket.sendFrame(image);
-        }
-      }
-
-      animationFrameRef.current =
-        requestAnimationFrame(sendFrame);
-    },
-    []
-  );
-
-  // =========================================================
-  // INITIALIZE
-  // =========================================================
-
-  useEffect(() => {
-    let mounted = true;
-
-    const initialize = async () => {
-      if (!mounted) {
-        return;
-      }
-
-      await startCamera();
-
-      if (!mounted) {
-        return;
-      }
-
-      connectAI();
-    };
-
-    initialize();
-
-    return () => {
-      mounted = false;
-
-      // Stop animation
-      if (
-        animationFrameRef.current !== null
-      ) {
-        cancelAnimationFrame(
-          animationFrameRef.current
-        );
-
-        animationFrameRef.current = null;
-      }
-
-      // Disconnect WebSocket
-      if (poseSocketRef.current) {
-        poseSocketRef.current.disconnect();
-        poseSocketRef.current = null;
-      }
-
-      // Stop camera
-      if (streamRef.current) {
-        streamRef.current
-          .getTracks()
-          .forEach((track) => {
-            track.stop();
-          });
-
-        streamRef.current = null;
-      }
-
-      setCameraReady(false);
-      setWsConnected(false);
-      setPoseDetected(false);
-    };
-  }, [startCamera, connectAI]);
-
-  // =========================================================
-  // START FRAME LOOP AFTER CAMERA
-  // =========================================================
-
-  useEffect(() => {
-    if (!cameraReady) {
-      return;
-    }
-
-    console.log(
-      "🎥 Starting AI frame stream..."
-    );
-
-    animationFrameRef.current =
-      requestAnimationFrame(sendFrame);
-
-    return () => {
-      if (
-        animationFrameRef.current !== null
-      ) {
-        cancelAnimationFrame(
-          animationFrameRef.current
-        );
-
-        animationFrameRef.current = null;
-      }
-    };
-  }, [cameraReady, sendFrame]);
-
-  // =========================================================
-  // RISK INFORMATION
-  // =========================================================
-
-  const risk = aiResponse?.risk ?? 0;
-
-  const riskLevel =
-    aiResponse?.risk_level ?? "UNKNOWN";
-
-  // =========================================================
-  // UI
-  // =========================================================
-
+const WorkoutAI = () => {
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className="min-h-screen bg-slate-50">
 
-      {/* =====================================================
-          CAMERA
-      ===================================================== */}
+      {/* ======================================================
+          PAGE HEADER
+      ======================================================= */}
 
-      <div className="relative overflow-hidden rounded-2xl bg-black shadow-lg">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="w-full aspect-video object-cover"
-        />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-        {/* Hidden canvas used for frame capture */}
-        <canvas
-          ref={canvasRef}
-          className="hidden"
-        />
+            {/* Title */}
 
-        {/* Camera status */}
-        <div className="absolute top-4 left-4">
-          <div className="rounded-full bg-black/70 px-4 py-2 text-sm text-white backdrop-blur">
-            {cameraReady ? (
-              <span className="text-green-400">
-                ● Camera Ready
-              </span>
-            ) : (
-              <span className="text-red-400">
-                ● Camera Not Ready
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* WebSocket status */}
-        <div className="absolute top-4 right-4">
-          <div className="rounded-full bg-black/70 px-4 py-2 text-sm text-white backdrop-blur">
-            {wsConnected ? (
-              <span className="text-green-400">
-                ● AI Connected
-              </span>
-            ) : (
-              <span className="text-red-400">
-                ● AI Disconnected
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* =====================================================
-          DETECTION STATUS
-      ===================================================== */}
-
-      <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
-
-        <h2 className="text-xl font-bold text-slate-900">
-          Detection Status
-        </h2>
-
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-
-          {/* Camera */}
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-sm text-slate-500">
-              Camera
-            </p>
-
-            <p className="mt-1 font-semibold">
-              {cameraReady ? (
-                <span className="text-green-600">
-                  Ready
-                </span>
-              ) : (
-                <span className="text-red-600">
-                  Not Ready
-                </span>
-              )}
-            </p>
-          </div>
-
-          {/* WebSocket */}
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-sm text-slate-500">
-              WebSocket
-            </p>
-
-            <p className="mt-1 font-semibold">
-              {wsConnected ? (
-                <span className="text-green-600">
-                  Connected
-                </span>
-              ) : (
-                <span className="text-red-600">
-                  Disconnected
-                </span>
-              )}
-            </p>
-          </div>
-
-          {/* Pose */}
-          <div className="rounded-xl bg-slate-50 p-4">
-            <p className="text-sm text-slate-500">
-              Pose
-            </p>
-
-            <p className="mt-1 font-semibold">
-              {poseDetected ? (
-                <span className="text-green-600">
-                  Detected
-                </span>
-              ) : (
-                <span className="text-amber-600">
-                  Searching...
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* =====================================================
-          ERROR
-      ===================================================== */}
-
-      {error && (
-        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
-          <p className="font-semibold text-red-700">
-            TrainSafe AI Error
-          </p>
-
-          <p className="mt-1 text-sm text-red-600">
-            {error}
-          </p>
-        </div>
-      )}
-
-      {/* =====================================================
-          RISK CARD
-      ===================================================== */}
-
-      {aiResponse && (
-        <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm border border-slate-200">
-
-          <div className="flex items-center justify-between">
             <div>
+              <div className="mb-2 flex items-center gap-2">
+
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                  TRAINSAFE AI
+                </span>
+
+                <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                  ● LIVE ANALYSIS
+                </span>
+
+              </div>
+
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                AI Workout Analysis
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
+                Train smarter with real-time computer vision.
+                TrainSafe analyzes your body movement and
+                provides instant posture and movement-risk
+                feedback.
+              </p>
+            </div>
+
+          </div>
+
+        </div>
+      </header>
+
+      {/* ======================================================
+          MAIN CONTENT
+      ======================================================= */}
+
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+
+        {/* ====================================================
+            INTRO / INSTRUCTIONS
+        ===================================================== */}
+
+        <section className="mb-8">
+
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
+
+            <div className="flex gap-4">
+
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-lg text-white">
+                🤖
+              </div>
+
+              <div>
+                <h2 className="font-semibold text-blue-900">
+                  How the AI analysis works
+                </h2>
+
+                <p className="mt-1 text-sm leading-6 text-blue-800">
+                  Your camera captures your movement,
+                  MediaPipe detects your body landmarks,
+                  and TrainSafe evaluates movement patterns
+                  to provide a prototype risk score and
+                  corrective feedback.
+                </p>
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            CAMERA + AI
+        ===================================================== */}
+
+        <section>
+
+          <LivePoseCamera />
+
+        </section>
+
+        {/* ====================================================
+            HOW TO GET THE BEST RESULT
+        ===================================================== */}
+
+        <section className="mt-10">
+
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-slate-900">
+              Get the best analysis
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Follow these steps before starting your workout.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+            {/* Card 1 */}
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg">
+                📷
+              </div>
+
+              <h3 className="mt-4 font-semibold text-slate-900">
+                Position your camera
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Place your phone or laptop far enough away
+                to keep your complete body visible.
+              </p>
+
+            </div>
+
+            {/* Card 2 */}
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg">
+                🧍
+              </div>
+
+              <h3 className="mt-4 font-semibold text-slate-900">
+                Keep your body visible
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Keep your head, shoulders, hips, knees
+                and feet inside the camera frame.
+              </p>
+
+            </div>
+
+            {/* Card 3 */}
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg">
+                🏃
+              </div>
+
+              <h3 className="mt-4 font-semibold text-slate-900">
+                Move naturally
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Perform your exercise slowly and use
+                controlled movements for better analysis.
+              </p>
+
+            </div>
+
+            {/* Card 4 */}
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg">
+                ⚠️
+              </div>
+
+              <h3 className="mt-4 font-semibold text-slate-900">
+                Follow feedback
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Use the AI feedback to identify movement
+                deviations and improve your form.
+              </p>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            AI PIPELINE
+        ===================================================== */}
+
+        <section className="mt-10">
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+            <div className="mb-6">
               <h2 className="text-xl font-bold text-slate-900">
-                Injury Risk
+                TrainSafe AI Pipeline
               </h2>
 
               <p className="mt-1 text-sm text-slate-500">
-                Real-time movement analysis
+                Real-time movement analysis from camera to
+                actionable feedback.
               </p>
             </div>
 
-            <div className="text-right">
-              <p className="text-3xl font-bold text-slate-900">
-                {risk}
-              </p>
+            <div className="grid gap-4 md:grid-cols-4">
 
-              <p className="text-sm font-semibold uppercase text-slate-500">
-                {riskLevel}
-              </p>
+              <div className="rounded-xl bg-slate-50 p-4 text-center">
+                <div className="text-2xl">
+                  📷
+                </div>
+
+                <div className="mt-2 font-semibold text-slate-900">
+                  Camera
+                </div>
+
+                <div className="mt-1 text-xs text-slate-500">
+                  Live video
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 p-4 text-center">
+                <div className="text-2xl">
+                  🧍
+                </div>
+
+                <div className="mt-2 font-semibold text-slate-900">
+                  Pose Detection
+                </div>
+
+                <div className="mt-1 text-xs text-slate-500">
+                  33 body landmarks
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 p-4 text-center">
+                <div className="text-2xl">
+                  📐
+                </div>
+
+                <div className="mt-2 font-semibold text-slate-900">
+                  Movement Analysis
+                </div>
+
+                <div className="mt-1 text-xs text-slate-500">
+                  Angles & posture
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 p-4 text-center">
+                <div className="text-2xl">
+                  🛡️
+                </div>
+
+                <div className="mt-2 font-semibold text-slate-900">
+                  Risk Feedback
+                </div>
+
+                <div className="mt-1 text-xs text-slate-500">
+                  Real-time guidance
+                </div>
+              </div>
+
             </div>
+
           </div>
 
-          {/* Risk progress bar */}
-          <div className="mt-5">
-            <div className="h-3 overflow-hidden rounded-full bg-slate-200">
-              <div
-                className="h-full rounded-full bg-blue-500 transition-all duration-300"
-                style={{
-                  width: `${Math.min(
-                    Math.max(risk, 0),
-                    100
-                  )}%`,
-                }}
-              />
-            </div>
-          </div>
+        </section>
 
-          {/* Feedback */}
-          {aiResponse.feedback && (
-            <div className="mt-5 rounded-xl bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-700">
-                Feedback
-              </p>
+        {/* ====================================================
+            DISCLAIMER
+        ===================================================== */}
 
-              <p className="mt-1 text-sm text-slate-600">
-                {aiResponse.feedback}
-              </p>
-            </div>
-          )}
+        <section className="mt-8">
 
-          {/* Recommendation */}
-          {aiResponse.recommendation && (
-            <div className="mt-4 rounded-xl bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-700">
-                Recommendation
-              </p>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
 
-              <p className="mt-1 text-sm text-slate-600">
-                {aiResponse.recommendation}
-              </p>
-            </div>
-          )}
-
-          {/* AI message */}
-          {aiResponse.message && (
-            <p className="mt-4 text-sm text-slate-500">
-              {aiResponse.message}
+            <p className="text-xs leading-5 text-slate-400">
+              <span className="font-semibold text-slate-500">
+                Prototype Notice:
+              </span>{" "}
+              TrainSafe's AI movement-risk score is a
+              hackathon prototype based on computer-vision
+              movement heuristics. It is intended for
+              fitness guidance and demonstration purposes
+              and should not be considered a medical
+              diagnosis or substitute for professional
+              medical advice.
             </p>
-          )}
-        </div>
-      )}
+
+          </div>
+
+        </section>
+
+      </main>
+
     </div>
   );
 };
 
-export default LivePoseCamera;
+export default WorkoutAI;

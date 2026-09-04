@@ -1,132 +1,132 @@
-import math
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import cv2
 import mediapipe as mp
+import numpy as np
 
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
-
-
-# ============================================================
-# MODEL PATH
-# ============================================================
-
-BASE_DIR = Path(__file__).resolve().parents[2]
-
-MODEL_PATH = (
-    BASE_DIR
-    / "models"
-    / "pose_landmarker_full.task"
-)
-
-
-# ============================================================
-# POSE CONNECTIONS
-# ============================================================
-
-POSE_CONNECTIONS = [
-    (0, 1), (1, 2), (2, 3), (3, 7),
-    (0, 4), (4, 5), (5, 6), (6, 8),
-    (9, 10),
-
-    (11, 12),
-
-    (11, 13), (13, 15),
-    (12, 14), (14, 16),
-
-    (11, 23), (12, 24),
-
-    (23, 24),
-
-    (23, 25), (25, 27),
-    (24, 26), (26, 28),
-
-    (27, 29), (29, 31),
-    (28, 30), (30, 32),
-]
-
-
-# ============================================================
-# ANGLE
-# ============================================================
-
-def calculate_angle(a, b, c):
-
-    ba = (
-        a[0] - b[0],
-        a[1] - b[1]
-    )
-
-    bc = (
-        c[0] - b[0],
-        c[1] - b[1]
-    )
-
-    dot = (
-        ba[0] * bc[0]
-        + ba[1] * bc[1]
-    )
-
-    mag_ba = math.sqrt(
-        ba[0] ** 2
-        + ba[1] ** 2
-    )
-
-    mag_bc = math.sqrt(
-        bc[0] ** 2
-        + bc[1] ** 2
-    )
-
-    if mag_ba == 0 or mag_bc == 0:
-        return 0
-
-    cosine = dot / (mag_ba * mag_bc)
-
-    cosine = max(
-        -1,
-        min(1, cosine)
-    )
-
-    return math.degrees(
-        math.acos(cosine)
-    )
-
-
-# ============================================================
-# POSE DETECTOR
-# ============================================================
 
 class PoseDetector:
+    """
+    TrainSafe MediaPipe Pose Detector.
+
+    Responsibilities:
+    - Detect human pose
+    - Extract MediaPipe's 33 landmarks
+    - Calculate joint angles
+    - Estimate movement/injury risk
+    - Generate warnings
+    - Generate feedback/recommendations
+    """
+
+    # ============================================================
+    # MEDIAPIPE LANDMARK INDEXES
+    # ============================================================
+
+    NOSE = 0
+
+    LEFT_SHOULDER = 11
+    RIGHT_SHOULDER = 12
+
+    LEFT_ELBOW = 13
+    RIGHT_ELBOW = 14
+
+    LEFT_WRIST = 15
+    RIGHT_WRIST = 16
+
+    LEFT_HIP = 23
+    RIGHT_HIP = 24
+
+    LEFT_KNEE = 25
+    RIGHT_KNEE = 26
+
+    LEFT_ANKLE = 27
+    RIGHT_ANKLE = 28
+
+    LEFT_HEEL = 29
+    RIGHT_HEEL = 30
+
+    LEFT_FOOT_INDEX = 31
+    RIGHT_FOOT_INDEX = 32
+
+    # ============================================================
+    # INITIALIZATION
+    # ============================================================
 
     def __init__(self):
 
-        if not MODEL_PATH.exists():
+        print("🚀 Initializing MediaPipe PoseLandmarker...")
 
-            raise FileNotFoundError(
-                f"""
-Pose model not found:
+        # Current file:
+        #
+        # ai-service/
+        # ├── app/
+        # │   └── vision/
+        # │       └── pose_detector.py
+        # │
+        # └── models/
+        #     └── pose_landmarker_lite.task
+        #
+        # parents[0] = vision
+        # parents[1] = app
+        # parents[2] = ai-service
 
-{MODEL_PATH}
+        self.base_dir = Path(
+            __file__
+        ).resolve().parents[2]
 
-Expected:
-
-ai-service/models/pose_landmarker_full.task
-"""
-            )
-
-        print("Loading MediaPipe model:")
-        print(MODEL_PATH)
-
-        base_options = python.BaseOptions(
-            model_asset_path=str(MODEL_PATH)
+        self.model_path = (
+            self.base_dir
+            / "models"
+            / "pose_landmarker_lite.task"
         )
 
-        options = vision.PoseLandmarkerOptions(
+        print(
+            f"📦 Model path: {self.model_path}"
+        )
 
-            base_options=base_options,
+        # --------------------------------------------------------
+        # Check model
+        # --------------------------------------------------------
 
-            running_mode=vision.RunningMode.VIDEO,
+        if not self.model_path.exists():
+
+            raise FileNotFoundError(
+                "\n"
+                "❌ MediaPipe model not found!\n\n"
+                f"Expected:\n{self.model_path}\n\n"
+                "Your project should contain:\n"
+                "ai-service/models/"
+                "pose_landmarker_lite.task\n"
+            )
+
+        # --------------------------------------------------------
+        # MediaPipe configuration
+        # --------------------------------------------------------
+
+        BaseOptions = mp.tasks.BaseOptions
+
+        PoseLandmarkerOptions = (
+            mp.tasks.vision.PoseLandmarkerOptions
+        )
+
+        PoseLandmarker = (
+            mp.tasks.vision.PoseLandmarker
+        )
+
+        RunningMode = (
+            mp.tasks.vision.RunningMode
+        )
+
+        options = PoseLandmarkerOptions(
+
+            base_options=BaseOptions(
+                model_asset_path=str(
+                    self.model_path
+                )
+            ),
+
+            running_mode=RunningMode.VIDEO,
 
             num_poses=1,
 
@@ -137,219 +137,1086 @@ ai-service/models/pose_landmarker_full.task
             min_tracking_confidence=0.5,
         )
 
+        # --------------------------------------------------------
+        # Create detector
+        # --------------------------------------------------------
+
         self.detector = (
-            vision.PoseLandmarker
-            .create_from_options(options)
+            PoseLandmarker.create_from_options(
+                options
+            )
         )
 
-        self.timestamp = 0
+        print(
+            "✅ MediaPipe PoseLandmarker initialized"
+        )
 
-        print("✅ Pose detector ready")
-
-
-    # ========================================================
+    # ============================================================
     # DETECT
-    # ========================================================
+    # ============================================================
 
-    def detect(self, image):
+    def detect(
+        self,
+        image: np.ndarray,
+        timestamp_ms: Optional[int] = None,
+    ) -> Dict[str, Any]:
 
-        self.timestamp += 33
+        """
+        Compatibility method.
 
-        result = self.detector.detect_for_video(
-            image,
-            self.timestamp
+        Your existing WebSocket route calls:
+
+            pose_detector.detect(...)
+
+        Therefore this method forwards the request
+        to process_frame().
+        """
+
+        return self.process_frame(
+            image=image,
+            timestamp_ms=timestamp_ms,
         )
 
-        if not result.pose_landmarks:
+    # ============================================================
+    # PROCESS FRAME
+    # ============================================================
 
-            return {
-                "detected": False,
-                "landmarks": [],
-                "angles": {},
-                "status": "NO_PERSON",
-                "message": "No person detected"
-            }
+    def process_frame(
+        self,
+        image: np.ndarray,
+        timestamp_ms: Optional[int] = None,
+    ) -> Dict[str, Any]:
 
+        # --------------------------------------------------------
+        # Validate image
+        # --------------------------------------------------------
 
-        landmarks = result.pose_landmarks[0]
+        if image is None:
 
-
-        # ====================================================
-        # LANDMARK DATA
-        # ====================================================
-
-        landmark_data = []
-
-        for index, landmark in enumerate(landmarks):
-
-            landmark_data.append({
-
-                "id": index,
-
-                "x": float(landmark.x),
-
-                "y": float(landmark.y),
-
-                "z": float(landmark.z),
-
-                "visibility": float(
-                    getattr(
-                        landmark,
-                        "visibility",
-                        1.0
-                    )
-                )
-            })
-
-
-        # ====================================================
-        # ANGLES
-        # ====================================================
-
-        left_elbow = calculate_angle(
-
-            (
-                landmarks[11].x,
-                landmarks[11].y
-            ),
-
-            (
-                landmarks[13].x,
-                landmarks[13].y
-            ),
-
-            (
-                landmarks[15].x,
-                landmarks[15].y
+            return self._empty_result(
+                "No image received."
             )
-        )
 
+        if image.size == 0:
 
-        right_elbow = calculate_angle(
-
-            (
-                landmarks[12].x,
-                landmarks[12].y
-            ),
-
-            (
-                landmarks[14].x,
-                landmarks[14].y
-            ),
-
-            (
-                landmarks[16].x,
-                landmarks[16].y
+            return self._empty_result(
+                "Empty image received."
             )
-        )
 
+        # --------------------------------------------------------
+        # Convert BGR -> RGB
+        # --------------------------------------------------------
 
-        left_knee = calculate_angle(
+        try:
 
-            (
-                landmarks[23].x,
-                landmarks[23].y
-            ),
-
-            (
-                landmarks[25].x,
-                landmarks[25].y
-            ),
-
-            (
-                landmarks[27].x,
-                landmarks[27].y
+            rgb_image = cv2.cvtColor(
+                image,
+                cv2.COLOR_BGR2RGB,
             )
-        )
 
+        except Exception as error:
 
-        right_knee = calculate_angle(
-
-            (
-                landmarks[24].x,
-                landmarks[24].y
-            ),
-
-            (
-                landmarks[26].x,
-                landmarks[26].y
-            ),
-
-            (
-                landmarks[28].x,
-                landmarks[28].y
+            print(
+                f"❌ Image conversion error: {error}"
             )
-        )
 
-
-        angles = {
-
-            "left_elbow": round(
-                left_elbow,
-                1
-            ),
-
-            "right_elbow": round(
-                right_elbow,
-                1
-            ),
-
-            "left_knee": round(
-                left_knee,
-                1
-            ),
-
-            "right_knee": round(
-                right_knee,
-                1
+            return self._empty_result(
+                "Unable to process image."
             )
-        }
 
+        # --------------------------------------------------------
+        # MediaPipe image
+        # --------------------------------------------------------
 
-        # ====================================================
-        # BASIC SAFETY ANALYSIS
-        # ====================================================
+        try:
 
-        status = "SAFE"
+            mp_image = mp.Image(
+                image_format=mp.ImageFormat.SRGB,
+                data=rgb_image,
+            )
 
-        message = "Good posture"
+        except Exception as error:
 
+            print(
+                f"❌ MediaPipe image error: {error}"
+            )
 
-        # Very basic initial rules.
-        # We will make this exercise-specific later.
+            return self._empty_result(
+                "Unable to create MediaPipe image."
+            )
 
-        if (
-            left_knee < 45
-            or right_knee < 45
+        # --------------------------------------------------------
+        # Timestamp
+        # --------------------------------------------------------
+
+        if timestamp_ms is None:
+
+            timestamp_ms = 0
+
+        # MediaPipe VIDEO mode requires increasing timestamps.
+        # The WebSocket normally provides timestamps, but this
+        # fallback protects against duplicate/invalid timestamps.
+
+        if not hasattr(
+            self,
+            "_last_timestamp",
         ):
 
-            status = "WARNING"
+            self._last_timestamp = -1
 
-            message = (
-                "Extreme knee angle detected"
+        timestamp_ms = int(
+            timestamp_ms
+        )
+
+        if timestamp_ms <= self._last_timestamp:
+
+            timestamp_ms = (
+                self._last_timestamp + 1
             )
 
+        self._last_timestamp = timestamp_ms
+
+        # --------------------------------------------------------
+        # Run MediaPipe
+        # --------------------------------------------------------
+
+        try:
+
+            result = (
+                self.detector.detect_for_video(
+                    mp_image,
+                    timestamp_ms,
+                )
+            )
+
+        except Exception as error:
+
+            print(
+                f"❌ MediaPipe processing error: {error}"
+            )
+
+            return self._empty_result(
+                "Pose processing failed."
+            )
+
+        # --------------------------------------------------------
+        # Check pose
+        # --------------------------------------------------------
+
+        if (
+            not result.pose_landmarks
+            or len(result.pose_landmarks) == 0
+        ):
+
+            return self._empty_result(
+                "No pose detected."
+            )
+
+        # --------------------------------------------------------
+        # First person
+        # --------------------------------------------------------
+
+        pose_landmarks = (
+            result.pose_landmarks[0]
+        )
+
+        # --------------------------------------------------------
+        # Extract 33 landmarks
+        # --------------------------------------------------------
+
+        landmarks = (
+            self._extract_landmarks(
+                pose_landmarks
+            )
+        )
+
+        # --------------------------------------------------------
+        # Calculate angles
+        # --------------------------------------------------------
+
+        angles = (
+            self._calculate_angles(
+                landmarks
+            )
+        )
+
+        # --------------------------------------------------------
+        # Calculate risk
+        # --------------------------------------------------------
+
+        risk_data = (
+            self._calculate_risk(
+                landmarks,
+                angles,
+            )
+        )
+
+        # --------------------------------------------------------
+        # Final response
+        # --------------------------------------------------------
 
         return {
 
             "detected": True,
 
-            "landmarks": landmark_data,
+            "landmarks": landmarks,
 
             "angles": angles,
 
-            "status": status,
+            "risk": risk_data["risk"],
 
-            "message": message
+            "risk_level": risk_data[
+                "risk_level"
+            ],
+
+            "warnings": risk_data[
+                "warnings"
+            ],
+
+            "feedback": risk_data[
+                "feedback"
+            ],
+
+            "recommendation": risk_data[
+                "recommendation"
+            ],
+
+            "metrics": risk_data[
+                "metrics"
+            ],
+
+            "status": "Pose detected",
+
+            "message": (
+                "Pose analyzed successfully."
+            ),
         }
 
+    # ============================================================
+    # EXTRACT LANDMARKS
+    # ============================================================
 
-    # ========================================================
-    # CLOSE
-    # ========================================================
+    def _extract_landmarks(
+        self,
+        pose_landmarks,
+    ) -> List[Dict[str, float]]:
 
-    def close(self):
+        landmarks = []
 
-        if self.detector:
+        for landmark in pose_landmarks:
 
-            self.detector.close()
+            visibility = getattr(
+                landmark,
+                "visibility",
+                1.0,
+            )
+
+            landmarks.append(
+                {
+                    "x": float(
+                        landmark.x
+                    ),
+
+                    "y": float(
+                        landmark.y
+                    ),
+
+                    "z": float(
+                        landmark.z
+                    ),
+
+                    "visibility": float(
+                        visibility
+                    ),
+                }
+            )
+
+        return landmarks
+
+    # ============================================================
+    # GET LANDMARK
+    # ============================================================
+
+    def _get_landmark(
+        self,
+        landmarks: List[
+            Dict[str, float]
+        ],
+        index: int,
+    ):
+
+        if (
+            index < 0
+            or index >= len(landmarks)
+        ):
+
+            return None
+
+        return landmarks[index]
+
+    # ============================================================
+    # CALCULATE ANGLE
+    # ============================================================
+
+    def _calculate_angle(
+        self,
+        a: Dict[str, float],
+        b: Dict[str, float],
+        c: Dict[str, float],
+    ) -> Optional[float]:
+
+        if (
+            a is None
+            or b is None
+            or c is None
+        ):
+
+            return None
+
+        try:
+
+            point_a = np.array(
+                [
+                    a["x"],
+                    a["y"],
+                ],
+                dtype=np.float32,
+            )
+
+            point_b = np.array(
+                [
+                    b["x"],
+                    b["y"],
+                ],
+                dtype=np.float32,
+            )
+
+            point_c = np.array(
+                [
+                    c["x"],
+                    c["y"],
+                ],
+                dtype=np.float32,
+            )
+
+            ba = point_a - point_b
+
+            bc = point_c - point_b
+
+            norm_ba = np.linalg.norm(
+                ba
+            )
+
+            norm_bc = np.linalg.norm(
+                bc
+            )
+
+            denominator = (
+                norm_ba * norm_bc
+            )
+
+            if denominator == 0:
+
+                return None
+
+            cosine_angle = (
+                np.dot(
+                    ba,
+                    bc,
+                )
+                / denominator
+            )
+
+            cosine_angle = np.clip(
+                cosine_angle,
+                -1.0,
+                1.0,
+            )
+
+            angle = np.degrees(
+                np.arccos(
+                    cosine_angle
+                )
+            )
+
+            return float(angle)
+
+        except Exception:
+
+            return None
+
+    # ============================================================
+    # CALCULATE ALL ANGLES
+    # ============================================================
+
+    def _calculate_angles(
+        self,
+        landmarks: List[
+            Dict[str, float]
+        ],
+    ) -> Dict[
+        str,
+        Optional[float]
+    ]:
+
+        # --------------------------------------------------------
+        # Left elbow
+        # --------------------------------------------------------
+
+        left_elbow = (
+            self._calculate_angle(
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_SHOULDER,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_ELBOW,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_WRIST,
+                ),
+            )
+        )
+
+        # --------------------------------------------------------
+        # Right elbow
+        # --------------------------------------------------------
+
+        right_elbow = (
+            self._calculate_angle(
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_SHOULDER,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_ELBOW,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_WRIST,
+                ),
+            )
+        )
+
+        # --------------------------------------------------------
+        # Left knee
+        # --------------------------------------------------------
+
+        left_knee = (
+            self._calculate_angle(
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_HIP,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_KNEE,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_ANKLE,
+                ),
+            )
+        )
+
+        # --------------------------------------------------------
+        # Right knee
+        # --------------------------------------------------------
+
+        right_knee = (
+            self._calculate_angle(
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_HIP,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_KNEE,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_ANKLE,
+                ),
+            )
+        )
+
+        # --------------------------------------------------------
+        # Left hip
+        # --------------------------------------------------------
+
+        left_hip = (
+            self._calculate_angle(
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_SHOULDER,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_HIP,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_KNEE,
+                ),
+            )
+        )
+
+        # --------------------------------------------------------
+        # Right hip
+        # --------------------------------------------------------
+
+        right_hip = (
+            self._calculate_angle(
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_SHOULDER,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_HIP,
+                ),
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_KNEE,
+                ),
+            )
+        )
+
+        # --------------------------------------------------------
+        # Trunk lean
+        # --------------------------------------------------------
+
+        trunk_lean = (
+            self._calculate_trunk_lean(
+                landmarks
+            )
+        )
+
+        return {
+
+            "left_elbow": left_elbow,
+
+            "right_elbow": right_elbow,
+
+            "left_knee": left_knee,
+
+            "right_knee": right_knee,
+
+            "left_hip": left_hip,
+
+            "right_hip": right_hip,
+
+            "trunk_lean": trunk_lean,
+        }
+
+    # ============================================================
+    # TRUNK LEAN
+    # ============================================================
+
+    def _calculate_trunk_lean(
+        self,
+        landmarks: List[
+            Dict[str, float]
+        ],
+    ) -> Optional[float]:
+
+        try:
+
+            left_shoulder = (
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_SHOULDER,
+                )
+            )
+
+            right_shoulder = (
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_SHOULDER,
+                )
+            )
+
+            left_hip = (
+                self._get_landmark(
+                    landmarks,
+                    self.LEFT_HIP,
+                )
+            )
+
+            right_hip = (
+                self._get_landmark(
+                    landmarks,
+                    self.RIGHT_HIP,
+                )
+            )
+
+            if not all(
+                [
+                    left_shoulder,
+                    right_shoulder,
+                    left_hip,
+                    right_hip,
+                ]
+            ):
+
+                return None
+
+            shoulder_x = (
+                left_shoulder["x"]
+                + right_shoulder["x"]
+            ) / 2
+
+            shoulder_y = (
+                left_shoulder["y"]
+                + right_shoulder["y"]
+            ) / 2
+
+            hip_x = (
+                left_hip["x"]
+                + right_hip["x"]
+            ) / 2
+
+            hip_y = (
+                left_hip["y"]
+                + right_hip["y"]
+            ) / 2
+
+            dx = (
+                shoulder_x
+                - hip_x
+            )
+
+            dy = (
+                shoulder_y
+                - hip_y
+            )
+
+            if abs(dy) < 0.0001:
+
+                return 90.0
+
+            angle = np.degrees(
+                np.arctan2(
+                    abs(dx),
+                    abs(dy),
+                )
+            )
+
+            return float(angle)
+
+        except Exception:
+
+            return None
+
+    # ============================================================
+    # VISIBILITY
+    # ============================================================
+
+    def _average_visibility(
+        self,
+        landmarks: List[
+            Dict[str, float]
+        ],
+    ) -> float:
+
+        if not landmarks:
+
+            return 0.0
+
+        visibility_values = []
+
+        for landmark in landmarks:
+
+            value = float(
+                landmark.get(
+                    "visibility",
+                    1.0,
+                )
+            )
+
+            visibility_values.append(
+                value
+            )
+
+        if not visibility_values:
+
+            return 0.0
+
+        return float(
+            np.mean(
+                visibility_values
+            )
+        )
+
+    # ============================================================
+    # RISK CALCULATION
+    # ============================================================
+
+    def _calculate_risk(
+        self,
+        landmarks: List[
+            Dict[str, float]
+        ],
+        angles: Dict[
+            str,
+            Optional[float]
+        ],
+    ) -> Dict[str, Any]:
+
+        risk = 0
+
+        warnings = []
+
+        # ========================================================
+        # VISIBILITY
+        # ========================================================
+
+        visibility = (
+            self._average_visibility(
+                landmarks
+            )
+        )
+
+        if visibility < 0.45:
+
+            risk += 20
+
+            warnings.append(
+                "Pose visibility is low."
+            )
+
+        elif visibility < 0.60:
+
+            risk += 10
+
+            warnings.append(
+                "Some body landmarks are difficult to detect."
+            )
+
+        # ========================================================
+        # KNEES
+        # ========================================================
+
+        left_knee = angles.get(
+            "left_knee"
+        )
+
+        right_knee = angles.get(
+            "right_knee"
+        )
+
+        if (
+            left_knee is not None
+            and left_knee < 45
+        ):
+
+            risk += 20
+
+            warnings.append(
+                "Left knee is deeply bent."
+            )
+
+        if (
+            right_knee is not None
+            and right_knee < 45
+        ):
+
+            risk += 20
+
+            warnings.append(
+                "Right knee is deeply bent."
+            )
+
+        # ========================================================
+        # KNEE ASYMMETRY
+        # ========================================================
+
+        if (
+            left_knee is not None
+            and right_knee is not None
+        ):
+
+            difference = abs(
+                left_knee
+                - right_knee
+            )
+
+            if difference > 35:
+
+                risk += 15
+
+                warnings.append(
+                    "Significant left/right knee asymmetry detected."
+                )
+
+            elif difference > 20:
+
+                risk += 8
+
+                warnings.append(
+                    "Moderate knee asymmetry detected."
+                )
+
+        # ========================================================
+        # HIPS
+        # ========================================================
+
+        left_hip = angles.get(
+            "left_hip"
+        )
+
+        right_hip = angles.get(
+            "right_hip"
+        )
+
+        if (
+            left_hip is not None
+            and left_hip < 50
+        ):
+
+            risk += 10
+
+            warnings.append(
+                "Left hip is highly flexed."
+            )
+
+        if (
+            right_hip is not None
+            and right_hip < 50
+        ):
+
+            risk += 10
+
+            warnings.append(
+                "Right hip is highly flexed."
+            )
+
+        # ========================================================
+        # TRUNK LEAN
+        # ========================================================
+
+        trunk_lean = angles.get(
+            "trunk_lean"
+        )
+
+        if (
+            trunk_lean is not None
+            and trunk_lean > 30
+        ):
+
+            risk += 20
+
+            warnings.append(
+                "Excessive trunk lean detected."
+            )
+
+        elif (
+            trunk_lean is not None
+            and trunk_lean > 20
+        ):
+
+            risk += 10
+
+            warnings.append(
+                "Moderate trunk lean detected."
+            )
+
+        # ========================================================
+        # LIMIT RISK
+        # ========================================================
+
+        risk = max(
+            0,
+            min(
+                100,
+                int(round(risk)),
+            ),
+        )
+
+        # ========================================================
+        # RISK LEVEL
+        # ========================================================
+
+        if risk < 25:
+
+            risk_level = "LOW"
+
+        elif risk < 50:
+
+            risk_level = "MODERATE"
+
+        elif risk < 75:
+
+            risk_level = "HIGH"
+
+        else:
+
+            risk_level = "CRITICAL"
+
+        # ========================================================
+        # FEEDBACK
+        # ========================================================
+
+        if risk_level == "LOW":
+
+            feedback = (
+                "Your movement currently looks "
+                "relatively stable."
+            )
+
+            recommendation = (
+                "Continue with controlled movement "
+                "and maintain good posture."
+            )
+
+        elif risk_level == "MODERATE":
+
+            feedback = (
+                "Some movement patterns may "
+                "increase injury risk."
+            )
+
+            recommendation = (
+                "Slow down and focus on controlled "
+                "movement and balanced posture."
+            )
+
+        elif risk_level == "HIGH":
+
+            feedback = (
+                "Potentially risky movement detected."
+            )
+
+            recommendation = (
+                "Reduce intensity and correct "
+                "your movement technique."
+            )
+
+        else:
+
+            feedback = (
+                "High-risk movement pattern detected."
+            )
+
+            recommendation = (
+                "Pause the exercise and reset "
+                "your posture before continuing."
+            )
+
+        # ========================================================
+        # LOW VISIBILITY OVERRIDE
+        # ========================================================
+
+        if visibility < 0.45:
+
+            feedback = (
+                "Pose confidence is low. "
+                "Move fully into the camera frame."
+            )
+
+            recommendation = (
+                "Make sure your complete body is "
+                "visible and the camera has a clear view."
+            )
+
+        # ========================================================
+        # METRICS
+        # ========================================================
+
+        metrics = {
+
+            "left_knee_angle": left_knee,
+
+            "right_knee_angle": right_knee,
+
+            "left_hip_angle": left_hip,
+
+            "right_hip_angle": right_hip,
+
+            "trunk_lean": trunk_lean,
+
+            "visibility": visibility,
+        }
+
+        return {
+
+            "risk": risk,
+
+            "risk_level": risk_level,
+
+            "warnings": warnings,
+
+            "feedback": feedback,
+
+            "recommendation": recommendation,
+
+            "metrics": metrics,
+        }
+
+    # ============================================================
+    # EMPTY RESULT
+    # ============================================================
+
+    def _empty_result(
+        self,
+        message: str,
+    ) -> Dict[str, Any]:
+
+        return {
+
+            "detected": False,
+
+            "landmarks": [],
+
+            "angles": {
+
+                "left_elbow": None,
+
+                "right_elbow": None,
+
+                "left_knee": None,
+
+                "right_knee": None,
+
+                "left_hip": None,
+
+                "right_hip": None,
+
+                "trunk_lean": None,
+            },
+
+            "risk": None,
+
+            "risk_level": "WAITING",
+
+            "warnings": [],
+
+            "feedback": message,
+
+            "recommendation": (
+                "Move your full body into "
+                "the camera frame."
+            ),
+
+            "metrics": {
+
+                "left_knee_angle": None,
+
+                "right_knee_angle": None,
+
+                "left_hip_angle": None,
+
+                "right_hip_angle": None,
+
+                "trunk_lean": None,
+
+                "visibility": 0.0,
+            },
+
+            "status": "No pose",
+
+            "message": message,
+        }

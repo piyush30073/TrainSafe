@@ -1,12 +1,10 @@
 export interface PoseAIResponse {
   success?: boolean;
   message?: string;
-  received?: number;
 
   detected?: boolean;
 
   landmarks?: {
-    id?: number;
     x: number;
     y: number;
     z?: number;
@@ -14,18 +12,30 @@ export interface PoseAIResponse {
   }[];
 
   angles?: {
-    left_elbow?: number;
-    right_elbow?: number;
-    left_knee?: number;
-    right_knee?: number;
-    [key: string]: number | undefined;
+    left_elbow?: number | null;
+    right_elbow?: number | null;
+    left_knee?: number | null;
+    right_knee?: number | null;
+    left_hip?: number | null;
+    right_hip?: number | null;
+    trunk_lean?: number | null;
   };
 
   risk?: number;
   risk_level?: string;
 
+  warnings?: string[];
   feedback?: string;
   recommendation?: string;
+
+  metrics?: {
+    left_knee_angle?: number | null;
+    right_knee_angle?: number | null;
+    left_hip_angle?: number | null;
+    right_hip_angle?: number | null;
+    trunk_lean?: number | null;
+    visibility?: number;
+  };
 
   status?: string;
 }
@@ -39,194 +49,91 @@ export class PoseSocket {
     onDisconnect?: () => void,
     onConnect?: () => void
   ) {
-    // =========================================================
-    // PREVENT DUPLICATE CONNECTIONS
-    // =========================================================
-
-    if (
-      this.socket &&
-      (
-        this.socket.readyState === WebSocket.OPEN ||
-        this.socket.readyState === WebSocket.CONNECTING
-      )
-    ) {
-      console.log(
-        "⚠️ WebSocket already connected/connecting"
-      );
-
-      return;
-    }
-
-    // =========================================================
-    // GET AI SERVICE URL
-    // =========================================================
-
-    const aiUrl =
-      import.meta.env.VITE_AI_API_URL;
+    const aiUrl = import.meta.env.VITE_AI_API_URL;
 
     if (!aiUrl) {
-      console.error(
-        "❌ VITE_AI_API_URL is not configured"
-      );
-
+      console.error("❌ VITE_AI_API_URL is not defined");
       return;
     }
 
-    // =========================================================
-    // HTTP → WS
-    //
-    // Local:
-    // http://localhost:8000
-    //       ↓
-    // ws://localhost:8000
-    //
-    // Production:
-    // https://trainsafe-1.onrender.com
-    //       ↓
-    // wss://trainsafe-1.onrender.com
-    // =========================================================
+    const wsUrl = `${aiUrl.replace(/^http/, "ws")}/ws/pose`;
 
-    const wsUrl =
-      `${aiUrl.replace(/^http/, "ws")}/ws/pose`;
+    console.log("🤖 Connecting to TrainSafe AI:", wsUrl);
 
-    console.log(
-      "🔌 Connecting to TrainSafe AI:",
-      wsUrl
-    );
+    // Close previous socket if one exists
+    if (this.socket) {
+      try {
+        this.socket.close();
+      } catch {
+        // Ignore close errors
+      }
 
-    // =========================================================
-    // CREATE SOCKET
-    // =========================================================
+      this.socket = null;
+    }
 
     try {
-      this.socket =
-        new WebSocket(wsUrl);
+      this.socket = new WebSocket(wsUrl);
     } catch (error) {
-      console.error(
-        "❌ Failed to create WebSocket:",
-        error
-      );
-
+      console.error("❌ WebSocket creation failed:", error);
       return;
     }
 
-    // =========================================================
-    // CONNECTED
-    // =========================================================
-
     this.socket.onopen = () => {
-      console.log(
-        "✅ Connected to TrainSafe AI"
-      );
+      console.log("🟢 WebSocket OPEN");
+      console.log("✅ Connected to TrainSafe AI");
 
-      console.log(
-        "🤖 AI WebSocket:",
-        wsUrl
-      );
-
-      if (onConnect) {
-        onConnect();
-      }
+      onConnect?.();
     };
-
-    // =========================================================
-    // MESSAGE
-    // =========================================================
 
     this.socket.onmessage = (event) => {
       try {
-        const data: PoseAIResponse =
-          JSON.parse(event.data);
+        const data: PoseAIResponse = JSON.parse(event.data);
 
-        console.log(
-          "🤖 AI response:",
-          data
-        );
+        console.log("📥 AI RESPONSE:", data);
 
         onMessage(data);
-
       } catch (error) {
         console.error(
-          "❌ Invalid AI response:",
+          "❌ Failed to parse AI response:",
           error
-        );
-
-        console.error(
-          "Received:",
-          event.data
         );
       }
     };
-
-    // =========================================================
-    // ERROR
-    // =========================================================
 
     this.socket.onerror = (error) => {
       console.error(
-        "❌ AI WebSocket error:",
+        "❌ TrainSafe AI WebSocket ERROR:",
         error
       );
 
-      console.error(
-        "❌ WebSocket URL:",
-        wsUrl
-      );
-
-      if (onError) {
-        onError(error);
-      }
+      onError?.(error);
     };
-
-    // =========================================================
-    // DISCONNECTED
-    // =========================================================
 
     this.socket.onclose = (event) => {
       console.log(
-        "🔌 AI WebSocket disconnected"
+        "🔴 WebSocket CLOSED",
+        `code=${event.code}`,
+        `reason=${event.reason || "none"}`
       );
 
-      console.log(
-        "Close code:",
-        event.code
-      );
-
-      console.log(
-        "Close reason:",
-        event.reason
-      );
-
-      if (onDisconnect) {
-        onDisconnect();
-      }
+      onDisconnect?.();
     };
   }
 
-  // =========================================================
-  // SEND FRAME
-  // =========================================================
-
   sendFrame(image: string) {
-    if (
-      !this.socket ||
-      this.socket.readyState !== WebSocket.OPEN
-    ) {
+    if (!this.socket) {
       console.warn(
-        "⚠️ WebSocket is not connected"
+        "⚠️ Cannot send frame: WebSocket does not exist"
       );
+      return;
+    }
 
+    if (this.socket.readyState !== WebSocket.OPEN) {
       return;
     }
 
     try {
-      // IMPORTANT:
-      // FastAPI expects the base64/data URL directly.
-      //
-      // DO NOT wrap it in JSON.
-
       this.socket.send(image);
-
     } catch (error) {
       console.error(
         "❌ Failed to send frame:",
@@ -235,31 +142,29 @@ export class PoseSocket {
     }
   }
 
-  // =========================================================
-  // CONNECTION STATUS
-  // =========================================================
-
-  isConnected() {
+  isConnected(): boolean {
     return (
       this.socket !== null &&
-      this.socket.readyState ===
-        WebSocket.OPEN
+      this.socket.readyState === WebSocket.OPEN
     );
   }
 
-  // =========================================================
-  // DISCONNECT
-  // =========================================================
-
   disconnect() {
-    if (this.socket) {
-      console.log(
-        "🔌 Closing AI WebSocket..."
-      );
-
-      this.socket.close();
-
-      this.socket = null;
+    if (!this.socket) {
+      return;
     }
+
+    console.log("🔌 Disconnecting TrainSafe AI...");
+
+    try {
+      this.socket.close(1000, "Client disconnected");
+    } catch (error) {
+      console.error(
+        "❌ WebSocket close error:",
+        error
+      );
+    }
+
+    this.socket = null;
   }
 }
