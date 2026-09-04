@@ -1,4 +1,3 @@
-
 export interface PoseAIResponse {
   success?: boolean;
   message?: string;
@@ -29,22 +28,57 @@ export class PoseSocket {
     // Prevent duplicate connections
     if (
       this.socket &&
-      this.socket.readyState === WebSocket.OPEN
+      (this.socket.readyState === WebSocket.OPEN ||
+        this.socket.readyState === WebSocket.CONNECTING)
     ) {
-      console.log(
-        "⚠️ WebSocket already connected"
+      console.log("⚠️ WebSocket already connected/connecting");
+      return;
+    }
+
+    // =========================================================
+    // GET AI SERVICE URL FROM ENVIRONMENT
+    // =========================================================
+
+    const aiUrl = import.meta.env.VITE_AI_API_URL;
+
+    if (!aiUrl) {
+      console.error(
+        "❌ VITE_AI_API_URL is not configured"
       );
 
       return;
     }
 
+    // Convert:
+    // http://localhost:8000
+    //        ↓
+    // ws://localhost:8000
+    //
+    // https://trainsafe-1.onrender.com
+    //        ↓
+    // wss://trainsafe-1.onrender.com
+
+    const wsUrl = `${aiUrl.replace(/^http/, "ws")}/ws/pose`;
+
     console.log(
-      "🔌 Connecting to TrainSafe AI..."
+      "🔌 Connecting to TrainSafe AI:",
+      wsUrl
     );
 
-    this.socket = new WebSocket(
-      "ws://127.0.0.1:8000/ws/pose"
-    );
+    // =========================================================
+    // CREATE WEBSOCKET
+    // =========================================================
+
+    try {
+      this.socket = new WebSocket(wsUrl);
+    } catch (error) {
+      console.error(
+        "❌ Failed to create WebSocket:",
+        error
+      );
+
+      return;
+    }
 
     // =========================================================
     // CONNECTED
@@ -53,6 +87,11 @@ export class PoseSocket {
     this.socket.onopen = () => {
       console.log(
         "✅ Connected to TrainSafe AI"
+      );
+
+      console.log(
+        "🤖 AI WebSocket:",
+        wsUrl
       );
     };
 
@@ -76,6 +115,11 @@ export class PoseSocket {
           "❌ Invalid AI response:",
           error
         );
+
+        console.error(
+          "Received data:",
+          event.data
+        );
       }
     };
 
@@ -89,6 +133,11 @@ export class PoseSocket {
         error
       );
 
+      console.error(
+        "❌ WebSocket URL:",
+        wsUrl
+      );
+
       if (onError) {
         onError(error);
       }
@@ -98,9 +147,19 @@ export class PoseSocket {
     // DISCONNECTED
     // =========================================================
 
-    this.socket.onclose = () => {
+    this.socket.onclose = (event) => {
       console.log(
         "🔌 AI WebSocket disconnected"
+      );
+
+      console.log(
+        "WebSocket close code:",
+        event.code
+      );
+
+      console.log(
+        "WebSocket close reason:",
+        event.reason
       );
 
       if (onDisconnect) {
@@ -146,8 +205,7 @@ export class PoseSocket {
   isConnected() {
     return (
       this.socket !== null &&
-      this.socket.readyState ===
-        WebSocket.OPEN
+      this.socket.readyState === WebSocket.OPEN
     );
   }
 
