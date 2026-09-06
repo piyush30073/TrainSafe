@@ -1,34 +1,257 @@
-
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, ArrowLeft, ShieldCheck } from "lucide-react";
 import api from "../services/api";
 
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: {
+              credential: string;
+            }) => void;
+          }) => void;
+
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              theme?: string;
+              size?: string;
+              width?: number;
+              text?: string;
+              shape?: string;
+              logo_alignment?: string;
+            }
+          ) => void;
+        };
+      };
+    };
+  }
+}
+
+const GOOGLE_SCRIPT_ID = "google-gsi-script";
+
 const Login = () => {
   const navigate = useNavigate();
 
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleInitializedRef = useRef(false);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
   const [error, setError] = useState("");
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  // ==========================================
+  // GOOGLE LOGIN RESPONSE
+  // ==========================================
+
+  const handleGoogleResponse = async (response: {
+    credential: string;
+  }) => {
+    try {
+      setError("");
+      setGoogleLoading(true);
+
+      console.log("🔐 Google credential received");
+
+      const result = await api.post("/auth/google", {
+        credential: response.credential,
+      });
+
+      const { token, user } = result.data;
+
+      localStorage.setItem("token", token);
+      localStorage.setItem(
+        "user",
+        JSON.stringify(user)
+      );
+
+      console.log("✅ TrainSafe Google login successful");
+
+      if (!user.profileComplete) {
+        navigate("/register?complete-profile=true");
+        return;
+      }
+
+      navigate("/dashboard");
+    } catch (error: any) {
+      console.error(
+        "❌ GOOGLE LOGIN ERROR:",
+        error
+      );
+
+      setError(
+        error.response?.data?.message ||
+          "Google login failed. Please try again."
+      );
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  // ==========================================
+  // INITIALIZE GOOGLE SIGN-IN
+  // ==========================================
+
+  useEffect(() => {
+    const clientId =
+      import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+    if (!clientId) {
+      console.error(
+        "❌ VITE_GOOGLE_CLIENT_ID is missing"
+      );
+      return;
+    }
+
+    const renderGoogleButton = () => {
+      if (!window.google) {
+        console.warn(
+          "⚠️ Google Identity Services is not ready yet"
+        );
+        return;
+      }
+
+      if (!googleButtonRef.current) {
+        console.warn(
+          "⚠️ Google button container is not ready"
+        );
+        return;
+      }
+
+      // Prevent duplicate initialization.
+      if (googleInitializedRef.current) {
+        return;
+      }
+
+      googleInitializedRef.current = true;
+
+      console.log(
+        "🔵 Initializing Google Sign-In..."
+      );
+
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleResponse,
+      });
+
+      googleButtonRef.current.innerHTML = "";
+
+      window.google.accounts.id.renderButton(
+        googleButtonRef.current,
+        {
+          theme: "outline",
+          size: "large",
+          width: 380,
+          text: "continue_with",
+          shape: "rectangular",
+          logo_alignment: "left",
+        }
+      );
+
+      console.log(
+        "✅ Google Sign-In button rendered"
+      );
+    };
+
+    const existingScript =
+      document.getElementById(
+        GOOGLE_SCRIPT_ID
+      );
+
+    // Google script already exists.
+    if (existingScript) {
+      if (window.google) {
+        renderGoogleButton();
+      } else {
+        existingScript.addEventListener(
+          "load",
+          renderGoogleButton,
+          { once: true }
+        );
+      }
+
+      return;
+    }
+
+    // Create Google script.
+    const script =
+      document.createElement("script");
+
+    script.id = GOOGLE_SCRIPT_ID;
+
+    script.src =
+      "https://accounts.google.com/gsi/client";
+
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      console.log(
+        "✅ Google Identity Services loaded"
+      );
+
+      renderGoogleButton();
+    };
+
+    script.onerror = () => {
+      console.error(
+        "❌ Failed to load Google Identity Services"
+      );
+
+      setError(
+        "Unable to load Google Sign-In. Please check your internet connection."
+      );
+    };
+
+    document.head.appendChild(script);
+
+    return () => {
+      // We intentionally do not remove the Google script.
+      // It can be reused when navigating back to Login.
+    };
+  }, []);
+
+  // ==========================================
+  // EMAIL / PASSWORD LOGIN
+  // ==========================================
+
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault();
 
     setError("");
     setLoading(true);
 
     try {
-      const response = await api.post("/auth/login", {
-        email,
-        password,
-      });
+      const response = await api.post(
+        "/auth/login",
+        {
+          email,
+          password,
+        }
+      );
 
       const { token, user } = response.data;
 
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem(
+        "token",
+        token
+      );
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(user)
+      );
 
       navigate("/dashboard");
     } catch (error: any) {
@@ -42,71 +265,97 @@ const Login = () => {
   };
 
   return (
-    <main className="relative flex h-screen w-full items-center justify-center overflow-hidden bg-[#f8faf9] px-4 text-slate-900">
-      {/* Background glow */}
-      <div className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[600px] -translate-x-1/2 rounded-full bg-emerald-200/25 blur-3xl" />
+    <main className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#f8faf9] px-4 py-8 text-slate-900">
 
-      {/* Back to home */}
-      <div className="absolute left-5 top-5 sm:left-7 sm:top-7">
-        <Link
-          to="/"
-          className="group flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
-        >
-          <ArrowLeft className="h-4 w-4 transition group-hover:-translate-x-1" />
-          Back to home
-        </Link>
+      {/* Background */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-emerald-100/50 blur-3xl" />
+
+        <div className="absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-teal-100/50 blur-3xl" />
       </div>
 
-      {/* Login container */}
-      <div className="relative z-10 w-full max-w-[410px]">
-        {/* Logo */}
-        <div className="mb-5 text-center">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2"
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900">
-              <Activity className="h-5 w-5 text-white" />
+      <div className="relative z-10 w-full max-w-md">
+
+        {/* Back */}
+        <Link
+          to="/"
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+        >
+          <ArrowLeft size={16} />
+          Back to home
+        </Link>
+
+        {/* Card */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50">
+
+          {/* Logo */}
+          <div className="mb-8 text-center">
+
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/20">
+              <Activity size={28} />
             </div>
 
-            <span className="text-2xl font-bold tracking-tight">
-              Train<span className="text-emerald-600">Safe</span>
-            </span>
-          </Link>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Welcome back
+            </h1>
 
-          <p className="mt-2 text-sm text-slate-500">
-            Train smarter. Move safer.
-          </p>
-        </div>
-
-        {/* Login Card */}
-        <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-900/5 sm:p-7">
-          <h1 className="text-2xl font-bold tracking-tight">
-            Welcome back
-          </h1>
-
-          <p className="mt-1.5 text-sm text-slate-500">
-            Sign in to continue to your TrainSafe dashboard.
-          </p>
+            <p className="mt-2 text-sm text-slate-500">
+              Sign in to continue to TrainSafe
+            </p>
+          </div>
 
           {/* Error */}
           {error && (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600">
+            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
               {error}
             </div>
           )}
 
+          {/* ======================================
+              GOOGLE SIGN-IN
+          ====================================== */}
+
+          <div className="mb-6 flex min-h-[44px] w-full justify-center">
+
+            {googleLoading ? (
+              <div className="flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-500">
+                Signing in with Google...
+              </div>
+            ) : (
+              <div
+                ref={googleButtonRef}
+                className="flex min-h-[44px] w-full items-center justify-center"
+              />
+            )}
+
+          </div>
+
+          {/* Divider */}
+          <div className="mb-6 flex items-center gap-4">
+
+            <div className="h-px flex-1 bg-slate-200" />
+
+            <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
+              OR
+            </span>
+
+            <div className="h-px flex-1 bg-slate-200" />
+
+          </div>
+
+          {/* Email Login */}
           <form
             onSubmit={handleSubmit}
-            className="mt-5 space-y-4"
+            className="space-y-5"
           >
+
             {/* Email */}
             <div>
               <label
                 htmlFor="email"
-                className="mb-1.5 block text-sm font-semibold text-slate-700"
+                className="mb-2 block text-sm font-medium text-slate-700"
               >
-                Email address
+                Email
               </label>
 
               <input
@@ -125,21 +374,12 @@ const Login = () => {
 
             {/* Password */}
             <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <label
-                  htmlFor="password"
-                  className="text-sm font-semibold text-slate-700"
-                >
-                  Password
-                </label>
-
-                <button
-                  type="button"
-                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-                >
-                  Forgot password?
-                </button>
-              </div>
+              <label
+                htmlFor="password"
+                className="mb-2 block text-sm font-medium text-slate-700"
+              >
+                Password
+              </label>
 
               <input
                 id="password"
@@ -155,39 +395,45 @@ const Login = () => {
               />
             </div>
 
-            {/* Sign In */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading
+                ? "Signing in..."
+                : "Sign in"}
             </button>
+
           </form>
 
           {/* Security */}
-          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-400">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
-            Your account is protected
+          <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
+
+            <ShieldCheck size={15} />
+
+            <span>
+              Your data is securely protected
+            </span>
+
           </div>
 
           {/* Register */}
-          <div className="mt-4 border-t border-slate-100 pt-4 text-center">
-            <p className="text-sm text-slate-500">
-              Don't have an account?{" "}
-              <Link
-                to="/register"
-                className="font-semibold text-emerald-600 hover:text-emerald-700"
-              >
-                Create one
-              </Link>
-            </p>
-          </div>
-        </div>
+          <p className="mt-6 text-center text-sm text-slate-500">
 
-        <p className="mt-3 text-center text-[11px] text-slate-400">
-          AI-powered training, prevention and recovery.
-        </p>
+            Don't have an account?{" "}
+
+            <Link
+              to="/register"
+              className="font-semibold text-emerald-600 hover:text-emerald-700"
+            >
+              Create account
+            </Link>
+
+          </p>
+
+        </div>
       </div>
     </main>
   );

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PoseSocket } from "../../services/poseSocket";
 import type { PoseAIResponse } from "../../services/poseSocket";
+
 const VIDEO_WIDTH = 640;
 const VIDEO_HEIGHT = 480;
 
@@ -67,28 +68,59 @@ const LivePoseCamera = () => {
 
       console.log("📥 RECEIVED FROM AI:", data);
 
+      // ----------------------------------------------------------
       // Pose landmarks
+      // ----------------------------------------------------------
+
       if (Array.isArray(data.landmarks)) {
         setLandmarks(data.landmarks);
       }
 
+      // ----------------------------------------------------------
       // Risk
+      // ----------------------------------------------------------
+
       if (typeof data.risk === "number") {
         const value = Math.round(data.risk);
 
         setRisk(value);
 
-        console.log(
-          `🚨 INJURY RISK = ${value}%`
+        // Save latest AI assessment for Dashboard
+        localStorage.setItem(
+          "trainsafe_latest_ai_risk",
+          JSON.stringify({
+            risk: value,
+            riskLevel:
+              typeof data.risk_level === "string"
+                ? data.risk_level
+                : "WAITING",
+            feedback:
+              typeof data.feedback === "string"
+                ? data.feedback
+                : "",
+            recommendation:
+              typeof data.recommendation === "string"
+                ? data.recommendation
+                : "",
+            timestamp: new Date().toISOString(),
+          })
         );
+
+        console.log(`🚨 INJURY RISK = ${value}%`);
       }
 
+      // ----------------------------------------------------------
       // Risk level
+      // ----------------------------------------------------------
+
       if (typeof data.risk_level === "string") {
         setRiskLevel(data.risk_level);
       }
 
+      // ----------------------------------------------------------
       // Feedback
+      // ----------------------------------------------------------
+
       if (
         typeof data.feedback === "string" &&
         data.feedback.trim()
@@ -96,7 +128,10 @@ const LivePoseCamera = () => {
         setFeedback(data.feedback);
       }
 
+      // ----------------------------------------------------------
       // Recommendation
+      // ----------------------------------------------------------
+
       if (
         typeof data.recommendation === "string" &&
         data.recommendation.trim()
@@ -104,23 +139,30 @@ const LivePoseCamera = () => {
         setRecommendation(data.recommendation);
       }
 
+      // ----------------------------------------------------------
       // Warnings
+      // ----------------------------------------------------------
+
       if (Array.isArray(data.warnings)) {
         setWarnings(data.warnings);
       }
 
+      // ----------------------------------------------------------
       // No pose
+      // ----------------------------------------------------------
+
       if (data.detected === false) {
         setFeedback(
           "No pose detected. Keep your full body inside the frame."
         );
       }
 
+      // ----------------------------------------------------------
       // Backend error
+      // ----------------------------------------------------------
+
       if (data.success === false) {
-        setError(
-          data.message || "AI processing failed."
-        );
+        setError(data.message || "AI processing failed.");
       } else {
         setError("");
       }
@@ -210,9 +252,7 @@ const LivePoseCamera = () => {
   const startFrameLoop = useCallback(() => {
     stopFrameLoop();
 
-    console.log(
-      "📡 Starting AI frame stream..."
-    );
+    console.log("📡 Starting AI frame stream...");
 
     sendFrame();
   }, [sendFrame, stopFrameLoop]);
@@ -246,6 +286,14 @@ const LivePoseCamera = () => {
 
       console.log(
         "📷 Requesting camera permission..."
+      );
+
+      // --------------------------------------------------------
+      // Clear previous temporary AI result
+      // --------------------------------------------------------
+
+      localStorage.removeItem(
+        "trainsafe_latest_ai_risk"
       );
 
       // --------------------------------------------------------

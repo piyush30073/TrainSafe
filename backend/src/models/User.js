@@ -16,31 +16,55 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Required for normal email/password accounts.
+    // Google-only accounts don't have a password.
     password: {
       type: String,
-      required: true,
       minlength: 6,
+      default: null,
     },
 
+    // Google account information
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      default: null,
+    },
+
+    authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+    },
+
+    profilePicture: {
+      type: String,
+      default: "",
+    },
+
+    // TrainSafe profile information.
+    // These are optional at database level because a new
+    // Google user may need to complete their profile first.
     age: {
       type: Number,
-      required: true,
       min: 1,
       max: 120,
+      default: null,
     },
 
     height: {
       type: Number,
-      required: true,
       min: 50,
       max: 250,
+      default: null,
     },
 
     weight: {
       type: Number,
-      required: true,
       min: 20,
       max: 300,
+      default: null,
     },
 
     fitnessGoal: {
