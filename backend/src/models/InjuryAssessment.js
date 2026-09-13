@@ -1,86 +1,130 @@
 import mongoose from "mongoose";
 
-const injuryAssessmentSchema =
-  new mongoose.Schema(
-    {
-      user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-        index: true,
-      },
+const injuryAssessmentSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
 
-      trainingFrequency: {
-        type: Number,
-        required: true,
-        min: 0,
-        max: 14,
-      },
+    // ==============================
+    // ASSESSMENT TYPE
+    // ==============================
+    assessmentType: {
+      type: String,
+      enum: ["manual", "ai"],
+      default: "manual",
+      index: true,
+    },
 
-      trainingLoad: {
-        type: Number,
-        required: true,
-        min: 0,
-        max: 10,
-      },
+    // ==============================
+    // MANUAL ASSESSMENT DATA
+    // ==============================
+    trainingFrequency: {
+      type: Number,
+      min: 0,
+      max: 14,
+    },
 
-      previousInjury: {
-        type: Boolean,
-        default: false,
-      },
+    trainingLoad: {
+      type: Number,
+      min: 0,
+      max: 10,
+    },
 
-      currentPain: {
-        type: Number,
-        required: true,
-        min: 0,
-        max: 10,
-      },
+    previousInjury: {
+      type: Boolean,
+      default: false,
+    },
 
-      sleepQuality: {
-        type: Number,
-        required: true,
-        min: 0,
-        max: 10,
-      },
+    currentPain: {
+      type: Number,
+      min: 0,
+      max: 10,
+    },
 
-      recoveryQuality: {
-        type: Number,
-        required: true,
-        min: 0,
-        max: 10,
-      },
+    sleepQuality: {
+      type: Number,
+      min: 0,
+      max: 10,
+    },
 
-      riskScore: {
-        type: Number,
-        required: true,
-        min: 0,
-        max: 100,
-      },
+    recoveryQuality: {
+      type: Number,
+      min: 0,
+      max: 10,
+    },
 
-      riskLevel: {
+    // ==============================
+    // COMMON RISK RESULT
+    // ==============================
+    riskScore: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100,
+    },
+
+    riskLevel: {
+      type: String,
+      enum: ["Low", "Moderate", "High", "WAITING"],
+      required: true,
+    },
+
+    recommendations: {
+      type: [String],
+      default: [],
+    },
+
+    // ==============================
+    // AI POSE DATA
+    // ==============================
+    aiData: {
+      feedback: {
         type: String,
-        enum: [
-          "Low",
-          "Moderate",
-          "High",
-        ],
-        required: true,
+        default: "",
       },
 
-      recommendations: {
+      warnings: {
         type: [String],
         default: [],
       },
-    },
-    {
-      timestamps: true,
-    }
-  );
 
-const InjuryAssessment =
-  mongoose.model(
-    "InjuryAssessment",
-    injuryAssessmentSchema
-  );
+      recommendation: {
+        type: String,
+        default: "",
+      },
+
+      angles: {
+        left_elbow: Number,
+        right_elbow: Number,
+        left_knee: Number,
+        right_knee: Number,
+        left_hip: Number,
+        right_hip: Number,
+        trunk_lean: Number,
+      },
+
+      metrics: {
+        left_knee_angle: Number,
+        right_knee_angle: Number,
+        left_hip_angle: Number,
+        right_hip_angle: Number,
+        trunk_lean: Number,
+        visibility: Number,
+      },
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+const InjuryAssessment = mongoose.model(
+  "InjuryAssessment",
+  injuryAssessmentSchema
+);
 
 export default InjuryAssessment;

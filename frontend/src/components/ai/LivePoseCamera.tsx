@@ -24,6 +24,10 @@ const LivePoseCamera = () => {
 
   const frameTimerRef = useRef<number | null>(null);
 
+  // Prevent saving an AI assessment on every camera frame.
+  // AI results are persisted at most once every 10 seconds.
+  const lastAISaveRef = useRef<number>(0);
+
   const mountedRef = useRef(false);
   const startingRef = useRef(false);
 
@@ -57,6 +61,114 @@ const LivePoseCamera = () => {
   }, []);
 
   // ============================================================
+  // SAVE AI ASSESSMENT TO BACKEND
+  // ============================================================
+
+  const saveAIAssessment = useCallback(
+    async (data: PoseAIResponse) => {
+      if (typeof data.risk !== "number") {
+        return;
+      }
+
+      const now = Date.now();
+
+      // Save at most once every 10 seconds.
+      if (now - lastAISaveRef.current < 10000) {
+        return;
+      }
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        console.warn(
+          "⚠️ No authentication token. AI assessment was not saved."
+        );
+        return;
+      }
+
+      lastAISaveRef.current = now;
+
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL;
+
+        if (!apiUrl) {
+          console.error(
+            "❌ VITE_API_URL is not configured."
+          );
+          lastAISaveRef.current = 0;
+          return;
+        }
+
+        const response = await fetch(
+          `${apiUrl}/api/injury/ai-assessment`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              risk: Math.round(data.risk),
+
+              riskLevel:
+                typeof data.risk_level === "string"
+                  ? data.risk_level
+                  : "Low",
+
+              warnings: Array.isArray(data.warnings)
+                ? data.warnings
+                : [],
+
+              feedback:
+                typeof data.feedback === "string"
+                  ? data.feedback
+                  : "",
+
+              recommendation:
+                typeof data.recommendation === "string"
+                  ? data.recommendation
+                  : "",
+
+              angles:
+                data.angles || {},
+
+              metrics:
+                data.metrics || {},
+            }),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          console.error(
+            "❌ Failed to save AI assessment:",
+            result
+          );
+
+          // Allow another attempt on the next AI response.
+          lastAISaveRef.current = 0;
+          return;
+        }
+
+        console.log(
+          "💾 AI assessment saved to MongoDB:",
+          result
+        );
+      } catch (error) {
+        console.error(
+          "❌ AI assessment save error:",
+          error
+        );
+
+        // Allow another attempt after an error.
+        lastAISaveRef.current = 0;
+      }
+    },
+    []
+  );
+
+  // ============================================================
   // HANDLE AI RESPONSE
   // ============================================================
 
@@ -85,28 +197,11 @@ const LivePoseCamera = () => {
 
         setRisk(value);
 
-        // Save latest AI assessment for Dashboard
-        localStorage.setItem(
-          "trainsafe_latest_ai_risk",
-          JSON.stringify({
-            risk: value,
-            riskLevel:
-              typeof data.risk_level === "string"
-                ? data.risk_level
-                : "WAITING",
-            feedback:
-              typeof data.feedback === "string"
-                ? data.feedback
-                : "",
-            recommendation:
-              typeof data.recommendation === "string"
-                ? data.recommendation
-                : "",
-            timestamp: new Date().toISOString(),
-          })
-        );
-
         console.log(`🚨 INJURY RISK = ${value}%`);
+
+        // Persist the AI assessment to MongoDB.
+        // saveAIAssessment throttles writes to once every 10 seconds.
+        saveAIAssessment(data);
       }
 
       // ----------------------------------------------------------
@@ -167,7 +262,7 @@ const LivePoseCamera = () => {
         setError("");
       }
     },
-    []
+    [saveAIAssessment]
   );
 
   // ============================================================
@@ -286,14 +381,6 @@ const LivePoseCamera = () => {
 
       console.log(
         "📷 Requesting camera permission..."
-      );
-
-      // --------------------------------------------------------
-      // Clear previous temporary AI result
-      // --------------------------------------------------------
-
-      localStorage.removeItem(
-        "trainsafe_latest_ai_risk"
       );
 
       // --------------------------------------------------------

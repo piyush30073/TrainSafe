@@ -34,6 +34,7 @@ interface AIRiskResult {
   riskLevel: string;
   feedback: string;
   recommendation: string;
+  warnings: string[];
   timestamp: string;
 }
 
@@ -124,37 +125,83 @@ const Dashboard = () => {
   }, []);
 
   // ==========================================
-  // LOAD LATEST AI RISK
+  // LOAD LATEST AI RISK FROM MONGODB
   // ==========================================
 
   useEffect(() => {
-    try {
-      const savedRisk =
-        localStorage.getItem(
-          "trainsafe_latest_ai_risk"
+    const fetchLatestAIRisk = async () => {
+      try {
+        const response = await api.get("/injury/latest");
+
+        console.log(
+          "🩹 Latest injury assessment:",
+          response.data
         );
 
-      if (!savedRisk) {
+        const assessment =
+          response.data?.assessment;
+
+        if (!assessment) {
+          setAiRisk(null);
+          return;
+        }
+
+        if (typeof assessment.riskScore !== "number") {
+          setAiRisk(null);
+          return;
+        }
+
+        const normalizedRiskLevel =
+          typeof assessment.riskLevel === "string"
+            ? assessment.riskLevel.toUpperCase()
+            : "LOW";
+
+        const aiData =
+          assessment.aiData || {};
+
+        setAiRisk({
+          risk: Math.round(assessment.riskScore),
+
+          riskLevel: normalizedRiskLevel,
+
+          feedback:
+            typeof aiData.feedback === "string"
+              ? aiData.feedback
+              : "",
+
+          recommendation:
+            typeof aiData.recommendation === "string"
+              ? aiData.recommendation
+              : Array.isArray(
+                  assessment.recommendations
+                ) &&
+                typeof assessment.recommendations[0] ===
+                  "string"
+                ? assessment.recommendations[0]
+                : "",
+
+          warnings:
+            Array.isArray(aiData.warnings)
+              ? aiData.warnings
+              : [],
+
+          timestamp:
+            assessment.createdAt ||
+            assessment.updatedAt ||
+            new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error(
+          "❌ Failed to load latest AI risk:",
+          err
+        );
+
+        // Do not show a fake risk if the API is unavailable.
         setAiRisk(null);
-        return;
       }
+    };
 
-      const parsed: AIRiskResult =
-        JSON.parse(savedRisk);
-
-      if (
-        typeof parsed.risk === "number"
-      ) {
-        setAiRisk(parsed);
-      }
-    } catch (err) {
-      console.error(
-        "❌ Failed to load AI risk:",
-        err
-      );
-
-      setAiRisk(null);
-    }
+    fetchLatestAIRisk();
   }, []);
 
   // ==========================================
