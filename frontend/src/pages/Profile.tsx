@@ -14,6 +14,7 @@ import {
 
 import Sidebar from "../components/layout/Sidebar";
 import Topbar from "../components/layout/Topbar";
+import api from "../services/api";
 
 interface User {
   id?: string;
@@ -68,6 +69,9 @@ const Profile = () => {
 
   const [editing, setEditing] =
     useState<boolean>(false);
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const [formData, setFormData] =
     useState<ProfileForm>({
@@ -174,38 +178,40 @@ const Profile = () => {
   // SAVE
   // ==========================================
 
-  const handleSave = () => {
-    const updatedUser: User = {
-      ...user,
+  const handleSave = async () => {
+    setError("");
+    setSaving(true);
 
-      name: formData.name.trim(),
+    try {
+      const response = await api.patch("/auth/me", {
+        name: formData.name.trim(),
+        age: Number(formData.age),
+        height: Number(formData.height),
+        weight: Number(formData.weight),
+        fitnessGoal: formData.fitnessGoal,
+      });
 
-      email: formData.email.trim(),
-
-      age: formData.age
-        ? Number(formData.age)
-        : undefined,
-
-      height: formData.height
-        ? Number(formData.height)
-        : undefined,
-
-      weight: formData.weight
-        ? Number(formData.weight)
-        : undefined,
-
-      fitnessGoal:
-        formData.fitnessGoal,
-    };
-
-    setUser(updatedUser);
-
-    localStorage.setItem(
-      "user",
-      JSON.stringify(updatedUser)
-    );
-
-    setEditing(false);
+      const updatedUser: User = response.data.user;
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setFormData({
+        name: updatedUser.name || "",
+        email: updatedUser.email || "",
+        age: updatedUser.age?.toString() || "",
+        height: updatedUser.height?.toString() || "",
+        weight: updatedUser.weight?.toString() || "",
+        fitnessGoal: updatedUser.fitnessGoal || "general-fitness",
+      });
+      setEditing(false);
+    } catch (saveError: any) {
+      console.error("PROFILE SAVE ERROR:", saveError);
+      setError(
+        saveError.response?.data?.message ||
+        "Unable to save profile changes. Please try again."
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ==========================================
@@ -288,15 +294,22 @@ const Profile = () => {
                   <button
                     type="button"
                     onClick={handleSave}
+                    disabled={saving}
                     className="flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
                   >
                     <Save size={17} />
-                    Save Changes
+                    {saving ? "Saving..." : "Save Changes"}
                   </button>
 
                 </div>
               )}
             </section>
+
+            {error && (
+              <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
 
             {/* PROFILE HEADER */}
             <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -371,6 +384,7 @@ const Profile = () => {
                     <input
                       type="email"
                       name="email"
+                      readOnly
                       value={formData.email}
                       onChange={
                         handleChange
