@@ -68,6 +68,8 @@ const Dashboard = () => {
   const [aiRisk, setAiRisk] =
     useState<AIRiskResult | null>(null);
 
+  const [recoveryScore, setRecoveryScore] = useState<number | null>(null);
+
   // ==========================================
   // START AI POSTURE SCAN
   // ==========================================
@@ -202,6 +204,25 @@ const Dashboard = () => {
     };
 
     fetchLatestAIRisk();
+  }, []);
+
+  // ==========================================
+  // LOAD REAL RECOVERY PROGRESS
+  // ==========================================
+
+  useEffect(() => {
+    const fetchRecovery = async () => {
+      try {
+        const response = await api.get("/recovery");
+        const score = response.data?.recovery?.recoveryScore;
+        setRecoveryScore(typeof score === "number" ? score : 0);
+      } catch (err) {
+        console.error("Failed to load recovery progress:", err);
+        setRecoveryScore(null);
+      }
+    };
+
+    fetchRecovery();
   }, []);
 
   // ==========================================
@@ -505,10 +526,9 @@ const Dashboard = () => {
     {
       title: "Recovery",
 
-      // Recovery module will be connected later.
-      value: "78%",
+      value: recoveryScore === null ? "--" : `${recoveryScore}%`,
 
-      label: "Recovery tracking",
+      label: recoveryScore === null ? "Unable to load recovery" : "Completed recovery exercises",
 
       icon: HeartPulse,
 
