@@ -82,7 +82,7 @@ export const updateMyProfile = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { $set: updates },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).select("-password -googleId");
 
     if (!user) {
