@@ -1,19 +1,36 @@
-@"
+# Dependencies
 node_modules/
 **/node_modules/
 
+# Environment files (keep local secrets out of Git)
 .env
-**/.env
 .env.*
+**/.env
 **/.env.*
+!.env.example
+!**/.env.example
 
+# Build outputs
 dist/
 **/dist/
+build/
+**/build/
 
+# Test and coverage output
 coverage/
 **/coverage/
+.pytest_cache/
+__pycache__/
+*.py[cod]
 
+# Python environments
+.venv/
+venv/
+env/
+
+# Logs and OS/editor files
 *.log
 .DS_Store
 Thumbs.db
-"@ | Set-Content .gitignore
+.vscode/
+.idea/

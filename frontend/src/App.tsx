@@ -16,102 +16,30 @@ import InjuryPrevention from "./pages/InjuryPrevention";
 import Recovery from "./pages/Recovery";
 import Nutrition from "./pages/Nutrition";
 import WorkoutAI from "./pages/WorkoutAI";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public pages */}
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-        {/* ================================
-            LANDING
-        ================================= */}
-        <Route
-          path="/"
-          element={<Landing />}
-        />
+        {/* Authenticated application */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/workout-ai" element={<WorkoutAI />} />
+          <Route path="/injury-prevention" element={<InjuryPrevention />} />
+          <Route path="/recovery" element={<Recovery />} />
+          <Route path="/nutrition" element={<Nutrition />} />
+          <Route path="/performance" element={<Performance />} />
+          <Route path="/profile" element={<Profile />} />
+        </Route>
 
-        {/* ================================
-            AUTHENTICATION
-        ================================= */}
-        <Route
-          path="/login"
-          element={<Login />}
-        />
-
-        <Route
-          path="/register"
-          element={<Register />}
-        />
-
-        {/* ================================
-            MAIN DASHBOARD
-        ================================= */}
-        <Route
-          path="/dashboard"
-          element={<Dashboard />}
-        />
-
-        {/* ================================
-            AI WORKOUT / POSTURE SCAN
-        ================================= */}
-        <Route
-          path="/workout-ai"
-          element={<WorkoutAI />}
-        />
-
-        {/* ================================
-            INJURY PREVENTION
-        ================================= */}
-        <Route
-          path="/injury-prevention"
-          element={<InjuryPrevention />}
-        />
-
-        {/* ================================
-            RECOVERY
-        ================================= */}
-        <Route
-          path="/recovery"
-          element={<Recovery />}
-        />
-
-        {/* ================================
-            NUTRITION
-        ================================= */}
-        <Route
-          path="/nutrition"
-          element={<Nutrition />}
-        />
-
-        {/* ================================
-            PERFORMANCE
-        ================================= */}
-        <Route
-          path="/performance"
-          element={<Performance />}
-        />
-
-        {/* ================================
-            PROFILE
-        ================================= */}
-        <Route
-          path="/profile"
-          element={<Profile />}
-        />
-
-        {/* ================================
-            UNKNOWN ROUTES
-        ================================= */}
-        <Route
-          path="*"
-          element={
-            <Navigate
-              to="/dashboard"
-              replace
-            />
-          }
-        />
-
+        {/* Unknown routes */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
